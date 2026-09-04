@@ -62,13 +62,15 @@ interface CrudModuleProps<T extends { id: string }> {
   permitirCrear?: boolean;
   detalle?: (fila: T) => React.ReactNode;
   extra?: React.ReactNode;
+  onCrear?: (valores: Record<string, string>) => Promise<void> | void;
+  onEditar?: (id: string, valores: Record<string, string>) => Promise<void> | void;
+  onEliminar?: (item: T) => Promise<void> | void;
 }
 
 /**
  * Módulo administrativo reutilizable con la interfaz CRUD completa:
  * tabla, buscador, filtros, orden, paginación, exportar, alta/edición,
- * detalle y confirmación de borrado. Las acciones son simuladas (toast);
- * al integrar el backend se reemplazan por llamadas a la API REST.
+ * detalle y confirmación de borrado.
  */
 export function CrudModule<T extends { id: string }>({
   titulo,
@@ -83,6 +85,9 @@ export function CrudModule<T extends { id: string }>({
   permitirCrear = true,
   detalle,
   extra,
+  onCrear,
+  onEditar,
+  onEliminar,
 }: CrudModuleProps<T>) {
   const [formAbierto, setFormAbierto] = useState(false);
   const [modo, setModo] = useState<"crear" | "editar">("crear");
@@ -111,7 +116,9 @@ export function CrudModule<T extends { id: string }>({
     setValoresForm((prev) => ({ ...prev, [name]: valor }));
   };
 
-  const manejarEnvio = (e: React.FormEvent) => {
+  const [guardando, setGuardando] = useState(false);
+
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validar campos obligatorios
@@ -126,10 +133,26 @@ export function CrudModule<T extends { id: string }>({
       return;
     }
 
-    setFormAbierto(false);
-    toast.success(
-      modo === "crear" ? "Registro creado correctamente (simulado)" : "Cambios guardados correctamente (simulado)",
-    );
+    try {
+      setGuardando(true);
+      if (modo === "crear" && onCrear) {
+        await onCrear(valoresForm);
+        setFormAbierto(false);
+      } else if (modo === "editar" && onEditar && seleccion) {
+        await onEditar(seleccion.id, valoresForm);
+        setFormAbierto(false);
+      } else {
+        setFormAbierto(false);
+        toast.success(
+          modo === "crear" ? "Registro creado correctamente" : "Cambios guardados correctamente",
+        );
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Error al procesar la solicitud";
+      toast.error(msg);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
@@ -244,11 +267,11 @@ export function CrudModule<T extends { id: string }>({
             ))}
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormAbierto(false)}>
+            <Button variant="outline" onClick={() => setFormAbierto(false)} disabled={guardando}>
               Cancelar
             </Button>
-            <Button type="submit" form="crud-form">
-              {modo === "crear" ? "Crear" : "Guardar cambios"}
+            <Button type="submit" form="crud-form" disabled={guardando}>
+              {guardando ? "Guardando..." : modo === "crear" ? "Crear" : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -283,15 +306,25 @@ export function CrudModule<T extends { id: string }>({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El registro se eliminará de forma permanente cuando
-              el backend esté conectado.
+              Esta acción no se puede deshacer. El registro se eliminará de forma permanente de la base de datos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => toast.success("Registro eliminado (simulado)")}
+              onClick={async () => {
+                try {
+                  if (onEliminar && seleccion) {
+                    await onEliminar(seleccion);
+                  } else {
+                    toast.success("Registro eliminado correctamente");
+                  }
+                } catch (error: unknown) {
+                  const msg = error instanceof Error ? error.message : "Error al eliminar el registro";
+                  toast.error(msg);
+                }
+              }}
             >
               Eliminar
             </AlertDialogAction>

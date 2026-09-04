@@ -25,11 +25,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { PetCard } from "@/components/shared/pet-card";
 import { mascotas } from "@/mock/mascotas";
+import { obtenerMascotaPorId } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/$id")({
-  loader: ({ params }): { mascota: Mascota } => {
-    const mascota = mascotas.find((m) => m.id === params.id);
+  loader: async ({ params }): Promise<{ mascota: Mascota }> => {
+    const mascota = await obtenerMascotaPorId(params.id);
     if (!mascota) throw notFound();
     return { mascota };
   },

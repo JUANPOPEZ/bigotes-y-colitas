@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Check, CheckCircle2, ChevronLeft, ChevronRight, FileText, Home, PawPrint, User } from "lucide-react";
 
@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { mascotas } from "@/mock/mascotas";
+import { obtenerMascotas } from "@/lib/services/mascotas";
+import type { Mascota } from "@/types";
 import { MAX_SOLICITUDES_ACTIVAS, puedeCrearSolicitud } from "@/lib/reglas-solicitudes";
 import { usuarioDemo } from "@/lib/mock-session";
 
@@ -48,7 +50,21 @@ const pasos = [
 
 function Pagina() {
   const { mascota: mascotaInicial } = Route.useSearch();
-  const disponibles = mascotas.filter((m) => m.estado !== "Adoptado" && (m.estado === "Disponible" || m.id === mascotaInicial));
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+
+  useEffect(() => {
+    let montado = true;
+    obtenerMascotas().then((datos) => {
+      if (montado && datos && datos.length > 0) {
+        setListaMascotas(datos);
+      }
+    });
+    return () => {
+      montado = false;
+    };
+  }, []);
+
+  const disponibles = listaMascotas.filter((m) => m.estado !== "Adoptado" && (m.estado === "Disponible" || m.id === mascotaInicial));
 
   const [paso, setPaso] = useState(0);
   const [mascotaId, setMascotaId] = useState(mascotaInicial ?? disponibles[0]?.id ?? "");
@@ -56,7 +72,7 @@ function Pagina() {
   const [enviado, setEnviado] = useState(false);
 
   const { activas, restantes, permitido } = puedeCrearSolicitud(usuarioDemo.correo);
-  const elegida = mascotas.find((m) => m.id === mascotaId);
+  const elegida = listaMascotas.find((m) => m.id === mascotaId);
 
 
   if (enviado) {

@@ -1,8 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { CrudModule } from "@/components/shared/crud-module";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { mascotas, ciudades } from "@/mock/mascotas";
+import {
+  obtenerMascotas,
+  crearMascota,
+  actualizarMascota,
+  eliminarMascota,
+} from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/admin/mascotas")({
@@ -20,11 +27,46 @@ export const Route = createFileRoute("/admin/mascotas")({
 });
 
 function Pagina() {
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+
+  useEffect(() => {
+    let montado = true;
+    obtenerMascotas().then((datos) => {
+      if (montado && datos && datos.length > 0) {
+        setListaMascotas(datos);
+      }
+    });
+    return () => {
+      montado = false;
+    };
+  }, []);
+
+  const handleCrear = async (valores: Record<string, string>) => {
+    const nueva = await crearMascota(valores);
+    setListaMascotas((prev) => [nueva, ...prev]);
+    toast.success(`Mascota "${nueva.nombre}" guardada en la base de datos`);
+  };
+
+  const handleEditar = async (id: string, valores: Record<string, string>) => {
+    const actualizada = await actualizarMascota(id, valores);
+    setListaMascotas((prev) => prev.map((m) => (m.id === id ? actualizada : m)));
+    toast.success(`Mascota "${actualizada.nombre}" actualizada en la base de datos`);
+  };
+
+  const handleEliminar = async (m: Mascota) => {
+    await eliminarMascota(m.id);
+    setListaMascotas((prev) => prev.filter((item) => item.id !== m.id));
+    toast.success(`Mascota "${m.nombre}" eliminada de la base de datos`);
+  };
+
   return (
     <CrudModule<Mascota>
       titulo="Gestión de mascotas"
       descripcion="Administra las fichas de las mascotas: datos básicos, salud, fotos y estado de adopción."
-      datos={mascotas}
+      datos={listaMascotas}
+      onCrear={handleCrear}
+      onEditar={handleEditar}
+      onEliminar={handleEliminar}
       etiquetaNuevo="Nueva mascota"
       buscarEn={(m) => `${m.nombre} ${m.raza} ${m.ciudad} ${m.especie}`}
       filtros={[

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Filter, Search, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { EmptyState } from "@/components/shared/empty-state";
 import { PetCard } from "@/components/shared/pet-card";
 import { mascotas } from "@/mock/mascotas";
+import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/")({
@@ -79,8 +80,21 @@ function Pagina() {
   const [f, setF] = useState<Filtros>(inicial);
   const [orden, setOrden] = useState("recientes");
   const [pagina, setPagina] = useState(1);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
 
-  const ciudades = useMemo(() => [...new Set(mascotas.map((m) => m.ciudad))].sort(), []);
+  useEffect(() => {
+    let montado = true;
+    obtenerMascotas().then((datos) => {
+      if (montado && datos && datos.length > 0) {
+        setListaMascotas(datos);
+      }
+    });
+    return () => {
+      montado = false;
+    };
+  }, []);
+
+  const ciudades = useMemo(() => [...new Set(listaMascotas.map((m) => m.ciudad))].sort(), [listaMascotas]);
 
   const actualizar = <K extends keyof Filtros>(clave: K, valor: Filtros[K]) => {
     setF((prev) => ({ ...prev, [clave]: valor }));
@@ -88,7 +102,7 @@ function Pagina() {
   };
 
   const resultados = useMemo(() => {
-    const lista = mascotas.filter((m) => {
+    const lista = listaMascotas.filter((m) => {
       // Regla: Las mascotas adoptadas no deben aparecer en el catálogo de adopción
       if (m.estado === "Adoptado") return false;
 

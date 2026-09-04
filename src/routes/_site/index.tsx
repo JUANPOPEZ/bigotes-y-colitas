@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -29,6 +30,8 @@ import { EstadoBadge } from "@/components/shared/estado-badge";
 import { SectionHeader } from "@/components/shared/section-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { mascotas } from "@/mock/mascotas";
+import { obtenerMascotas } from "@/lib/services/mascotas";
+import type { Mascota } from "@/types";
 import { denuncias, eventos, historias, kpis, productos } from "@/mock";
 
 export const Route = createFileRoute("/_site/")({
@@ -66,7 +69,21 @@ const pasos = [
 ];
 
 function Landing() {
-  const destacadas = mascotas.filter((m) => m.destacada).slice(0, 4);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+
+  useEffect(() => {
+    let montado = true;
+    obtenerMascotas().then((datos) => {
+      if (montado && datos && datos.length > 0) {
+        setListaMascotas(datos);
+      }
+    });
+    return () => {
+      montado = false;
+    };
+  }, []);
+
+  const destacadas = listaMascotas.filter((m) => m.destacada && m.estado !== "Adoptado").slice(0, 4);
   const destacados = productos.filter((p) => p.destacado).slice(0, 3);
 
   return (
