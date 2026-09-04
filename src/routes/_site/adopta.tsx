@@ -14,7 +14,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { mascotas } from "@/mock/mascotas";
 import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 import { MAX_SOLICITUDES_ACTIVAS, puedeCrearSolicitud } from "@/lib/reglas-solicitudes";
@@ -50,15 +49,17 @@ const pasos = [
 
 function Pagina() {
   const { mascota: mascotaInicial } = Route.useSearch();
-  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>([]);
 
   useEffect(() => {
     let montado = true;
-    obtenerMascotas().then((datos) => {
-      if (montado && datos && datos.length > 0) {
-        setListaMascotas(datos);
-      }
-    });
+    obtenerMascotas()
+      .then((datos) => {
+        if (montado) setListaMascotas(datos);
+      })
+      .catch((err) => {
+        console.error("[Adopta] No se pudo cargar mascotas desde Supabase:", err);
+      });
     return () => {
       montado = false;
     };

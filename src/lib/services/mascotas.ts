@@ -67,52 +67,37 @@ export function mapearMascotaDesdeDB(row: MascotaRow): Mascota {
 
 /**
  * Obtiene todas las mascotas desde Supabase.
- * Si ocurre algún error o no hay conexión, usa los datos locales (fallback)
- * para garantizar que la interfaz nunca se rompa.
  */
 export async function obtenerMascotas(): Promise<Mascota[]> {
-  try {
-    const { data, error } = await supabase
-      .from("mascotas")
-      .select("*")
-      .order("creado_en", { ascending: false });
+  const { data, error } = await supabase
+    .from("mascotas")
+    .select("*")
+    .order("creado_en", { ascending: false });
 
-    if (error) {
-      console.warn("[Mascotas Service] Consulta Supabase con advertencia, usando fallback:", error.message);
-      return mockMascotas;
-    }
-
-    if (!data || data.length === 0) {
-      return mockMascotas;
-    }
-
-    return data.map(mapearMascotaDesdeDB);
-  } catch (err) {
-    console.warn("[Mascotas Service] Excepción conectando a Supabase:", err);
-    return mockMascotas;
+  if (error) {
+    console.error("[Mascotas Service] Consulta Supabase falló:", error.message);
+    throw new Error(error.message);
   }
+
+  return (data ?? []).map(mapearMascotaDesdeDB);
 }
 
 /**
  * Obtiene una mascota específica por su ID.
  */
 export async function obtenerMascotaPorId(id: string): Promise<Mascota | undefined> {
-  try {
-    const { data, error } = await supabase
-      .from("mascotas")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from("mascotas")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
 
-    if (!error && data) {
-      return mapearMascotaDesdeDB(data);
-    }
-  } catch (err) {
-    console.warn("[Mascotas Service] Error consultando mascota por ID:", err);
+  if (error) {
+    console.error("[Mascotas Service] Error consultando mascota por ID:", error.message);
+    throw new Error(error.message);
   }
 
-  // Fallback por ID o por coincidencia en mocks
-  return mockMascotas.find((m) => m.id === id);
+  return data ? mapearMascotaDesdeDB(data) : undefined;
 }
 
 /**

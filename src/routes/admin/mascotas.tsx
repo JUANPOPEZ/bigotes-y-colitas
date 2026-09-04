@@ -1,9 +1,10 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { CrudModule } from "@/components/shared/crud-module";
 import { EstadoBadge } from "@/components/shared/estado-badge";
-import { mascotas, ciudades } from "@/mock/mascotas";
+import { ciudades } from "@/mock/mascotas";
 import {
   obtenerMascotas,
   crearMascota,
@@ -27,15 +28,17 @@ export const Route = createFileRoute("/admin/mascotas")({
 });
 
 function Pagina() {
-  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>([]);
 
   useEffect(() => {
     let montado = true;
-    obtenerMascotas().then((datos) => {
-      if (montado && datos && datos.length > 0) {
-        setListaMascotas(datos);
-      }
-    });
+    obtenerMascotas()
+      .then((datos) => {
+        if (montado) setListaMascotas(datos);
+      })
+      .catch((err) => {
+        console.error("[Admin mascotas] No se pudo cargar desde Supabase:", err);
+      });
     return () => {
       montado = false;
     };

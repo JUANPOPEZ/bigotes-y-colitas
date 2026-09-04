@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PetCard } from "@/components/shared/pet-card";
-import { mascotas } from "@/mock/mascotas";
 import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
@@ -80,15 +79,17 @@ function Pagina() {
   const [f, setF] = useState<Filtros>(inicial);
   const [orden, setOrden] = useState("recientes");
   const [pagina, setPagina] = useState(1);
-  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>([]);
 
   useEffect(() => {
     let montado = true;
-    obtenerMascotas().then((datos) => {
-      if (montado && datos && datos.length > 0) {
-        setListaMascotas(datos);
-      }
-    });
+    obtenerMascotas()
+      .then((datos) => {
+        if (montado) setListaMascotas(datos);
+      })
+      .catch((err) => {
+        console.error("[Catálogo] No se pudo cargar mascotas desde Supabase:", err);
+      });
     return () => {
       montado = false;
     };

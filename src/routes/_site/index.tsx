@@ -29,7 +29,6 @@ import { PetCard } from "@/components/shared/pet-card";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { SectionHeader } from "@/components/shared/section-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { mascotas } from "@/mock/mascotas";
 import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 import { denuncias, eventos, historias, kpis, productos } from "@/mock";
@@ -69,15 +68,17 @@ const pasos = [
 ];
 
 function Landing() {
-  const [listaMascotas, setListaMascotas] = useState<Mascota[]>(mascotas);
+  const [listaMascotas, setListaMascotas] = useState<Mascota[]>([]);
 
   useEffect(() => {
     let montado = true;
-    obtenerMascotas().then((datos) => {
-      if (montado && datos && datos.length > 0) {
-        setListaMascotas(datos);
-      }
-    });
+    obtenerMascotas()
+      .then((datos) => {
+        if (montado) setListaMascotas(datos);
+      })
+      .catch((err) => {
+        console.error("[Inicio] No se pudo cargar mascotas desde Supabase:", err);
+      });
     return () => {
       montado = false;
     };

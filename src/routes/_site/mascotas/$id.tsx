@@ -24,15 +24,18 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { PetCard } from "@/components/shared/pet-card";
-import { mascotas } from "@/mock/mascotas";
-import { obtenerMascotaPorId } from "@/lib/services/mascotas";
+import { obtenerMascotaPorId, obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/$id")({
-  loader: async ({ params }): Promise<{ mascota: Mascota }> => {
+  loader: async ({ params }): Promise<{ mascota: Mascota; similares: Mascota[] }> => {
     const mascota = await obtenerMascotaPorId(params.id);
     if (!mascota) throw notFound();
-    return { mascota };
+    const todas = await obtenerMascotas();
+    const similares = todas
+      .filter((m) => m.id !== mascota.id && m.especie === mascota.especie && m.estado !== "Adoptado")
+      .slice(0, 3);
+    return { mascota, similares };
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
@@ -57,14 +60,10 @@ export const Route = createFileRoute("/_site/mascotas/$id")({
 });
 
 function Pagina() {
-  const { mascota } = Route.useLoaderData() as { mascota: Mascota };
+  const { mascota, similares } = Route.useLoaderData() as { mascota: Mascota; similares: Mascota[] };
   const [imagen, setImagen] = useState(0);
   const [favorito, setFavorito] = useState(false);
   const Icono = mascota.especie === "Perro" ? Dog : Cat;
-
-  const similares = mascotas
-    .filter((m) => m.id !== mascota.id && m.especie === mascota.especie)
-    .slice(0, 3);
 
   const datos = [
     { icono: Icono, etiqueta: "Especie", valor: `${mascota.especie} · ${mascota.raza}` },
