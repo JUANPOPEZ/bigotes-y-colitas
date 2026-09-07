@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useRolSimulado, usuarioDemo } from "@/lib/mock-session";
-import { cerrarSesion as cerrarSesionAuth } from "@/lib/auth";
+import { useAuth, cerrarSesion as cerrarSesionAuth } from "@/lib/auth";
 import { notificaciones } from "@/mock";
 
 const enlaces = [
@@ -33,16 +32,18 @@ const enlaces = [
 ] as const;
 
 export function Navbar() {
-  const { autenticado, rol, setRol, perfil, user } = useRolSimulado();
+  const { autenticado, rol, perfil, user } = useAuth();
   const navigate = useNavigate();
 
   async function cerrarSesion() {
     await cerrarSesionAuth();
-    setRol("visitante");
     navigate({ to: "/" });
   }
 
-  const nombreUsuario = perfil?.nombre || user?.user_metadata?.nombre || usuarioDemo.nombre;
+  const nombreUsuario =
+    perfil?.nombre ||
+    user?.user_metadata?.nombre ||
+    (user?.email ? user.email.split("@")[0] : "Usuario");
   const iniciales =
     nombreUsuario
       .split(" ")
@@ -213,7 +214,7 @@ export function Navbar() {
                 {autenticado ? (
                   <div className="mt-3 grid gap-1 border-t pt-3">
                     <p className="px-3 pb-1 text-xs text-muted-foreground">
-                      {usuarioDemo.nombre} · {rol === "administrador" ? "Administrador" : "Adoptante"}
+                      {nombreUsuario} · {rol === "administrador" ? "Administrador" : "Adoptante"}
                     </p>
                     <Link
                       to="/cuenta"

@@ -15,7 +15,7 @@ import {
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
-import { useRolSimulado } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -36,9 +36,24 @@ const enlaces = [
 
 function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { rol, autenticado, perfil } = useRolSimulado();
+  const { rol, autenticado, perfil, cargando } = useAuth();
 
-  if (rol !== "administrador") {
+  if (cargando) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center p-6 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Comprobando permisos de acceso...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!autenticado || rol !== "administrador") {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Navbar />
@@ -48,7 +63,7 @@ function AdminLayout() {
             <p className="text-sm text-muted-foreground">
               {autenticado
                 ? `Tu cuenta (${perfil?.correo || "actual"}) tiene rol de ${rol}. Esta sección de administración es exclusiva para el equipo de la fundación.`
-                : "Debes iniciar sesión con una cuenta con permisos de administrador para acceder a esta sección."}
+                : "Debes iniciar sesión con una cuenta de administrador para acceder a esta sección."}
             </p>
             <div className="pt-2">
               <Link

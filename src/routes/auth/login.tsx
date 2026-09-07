@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { iniciarSesion } from "@/lib/auth";
-import { setRolSimulado } from "@/lib/mock-session";
 import heroPets from "@/assets/hero-pets.jpg";
 
 export const Route = createFileRoute("/auth/login")({
@@ -46,7 +44,7 @@ function Pagina() {
   const navigate = useNavigate();
   const [ver, setVer] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [correo, setCorreo] = useState("admin@bigotesycolitas.org");
+  const [correo, setCorreo] = useState("");
   const [clave, setClave] = useState("");
   const [errores, setErrores] = useState<{ correo?: string; clave?: string }>({});
   const [recuperar, setRecuperar] = useState(false);
@@ -75,21 +73,11 @@ function Pagina() {
       const msg = err instanceof Error ? err.message : "Error al iniciar sesión";
       console.error("[Login] Error:", msg);
       if (msg.toLowerCase().includes("invalid login credentials")) {
-        toast.error("Correo o contraseña incorrectos. Si aún no tienes cuenta, regístrate o usa el acceso demo.");
+        toast.error("Correo o contraseña incorrectos. Verifica tus credenciales o regístrate si no tienes cuenta.");
       } else {
         toast.error(msg);
       }
     }
-  }
-
-  function ingresarDemo(rol: "adoptante" | "administrador") {
-    setRolSimulado(rol);
-    toast.success(
-      rol === "administrador"
-        ? "Sesión iniciada como administrador (Modo Exploración)"
-        : "Sesión iniciada como adoptante (Modo Exploración)",
-    );
-    navigate({ to: rol === "administrador" ? "/admin" : "/cuenta" });
   }
 
   return (
@@ -193,23 +181,6 @@ function Pagina() {
                   Entrar
                 </Button>
               </form>
-
-              <div className="my-5 flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  o explora la demo
-                </span>
-                <Separator className="flex-1" />
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" type="button" onClick={() => ingresarDemo("adoptante")}>
-                  Entrar como adoptante (Demo)
-                </Button>
-                <Button variant="outline" type="button" onClick={() => ingresarDemo("administrador")}>
-                  Entrar como admin (Demo)
-                </Button>
-              </div>
             </CardContent>
           </Card>
 

@@ -62,11 +62,21 @@ function Pagina() {
     toast.success(`Mascota "${m.nombre}" eliminada de la base de datos`);
   };
 
+  const fallbackFoto = (especie: string) =>
+    especie === "Gato"
+      ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+      : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+
+  const datosCrud = listaMascotas.map((m) => ({
+    ...m,
+    foto: m.galeria?.[0] || fallbackFoto(m.especie),
+  }));
+
   return (
-    <CrudModule<Mascota>
+    <CrudModule<Mascota & { foto: string }>
       titulo="Gestión de mascotas"
       descripcion="Administra las fichas de las mascotas: datos básicos, salud, fotos y estado de adopción."
-      datos={listaMascotas}
+      datos={datosCrud}
       onCrear={handleCrear}
       onEditar={handleEditar}
       onEliminar={handleEliminar}
@@ -86,7 +96,12 @@ function Pagina() {
           valor: (m) => m.nombre,
           render: (m) => (
             <div className="flex items-center gap-3">
-              <img src={m.galeria[0]} alt={m.nombre} className="size-10 rounded-xl object-cover" loading="lazy" />
+              <img
+                src={m.foto || fallbackFoto(m.especie)}
+                alt={m.nombre}
+                className="size-10 rounded-xl object-cover"
+                loading="lazy"
+              />
               <div>
                 <p className="font-medium">{m.nombre}</p>
                 <p className="text-xs text-muted-foreground">{m.raza}</p>
@@ -131,7 +146,11 @@ function Pagina() {
       detalle={(m) => (
         <div className="space-y-4">
           <div className="flex gap-4">
-            <img src={m.galeria[0]} alt={m.nombre} className="size-28 rounded-2xl object-cover" />
+            <img
+              src={m.foto || fallbackFoto(m.especie)}
+              alt={m.nombre}
+              className="size-28 rounded-2xl object-cover"
+            />
             <div>
               <p className="font-display text-xl font-semibold">{m.nombre}</p>
               <p className="text-sm text-muted-foreground">

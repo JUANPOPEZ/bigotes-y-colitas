@@ -82,12 +82,54 @@ CREATE POLICY "Solo administradores pueden eliminar mascotas"
     ON public.mascotas FOR DELETE
     USING (public.es_admin());
 
+-- 5. Asegurar RLS en la tabla perfiles
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Lectura publica de perfiles basicos" ON public.perfiles;
+DROP POLICY IF EXISTS "Usuarios pueden actualizar su propio perfil" ON public.perfiles;
+DROP POLICY IF EXISTS "Admins pueden gestionar todos los perfiles" ON public.perfiles;
+
+CREATE POLICY "Lectura publica de perfiles basicos"
+    ON public.perfiles FOR SELECT
+    USING (true);
+
+CREATE POLICY "Usuarios pueden actualizar su propio perfil"
+    ON public.perfiles FOR UPDATE
+    USING (auth.uid() = id);
+
+CREATE POLICY "Admins pueden gestionar todos los perfiles"
+    ON public.perfiles FOR ALL
+    USING (public.es_admin());
+
+-- 6. Asegurar Storage Bucket 'pets' para fotos de mascotas
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('pets', 'pets', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+ON CONFLICT (id) DO UPDATE SET
+    public = true,
+    file_size_limit = 10485760;
+
+DROP POLICY IF EXISTS "Lectura publica de fotos de mascotas" ON storage.objects;
+DROP POLICY IF EXISTS "Admins suben fotos de mascotas" ON storage.objects;
+DROP POLICY IF EXISTS "Admins eliminan fotos de mascotas" ON storage.objects;
+
+CREATE POLICY "Lectura publica de fotos de mascotas"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'pets');
+
+CREATE POLICY "Admins suben fotos de mascotas"
+    ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id = 'pets' AND (public.es_admin() OR auth.role() = 'authenticated'));
+
+CREATE POLICY "Admins eliminan fotos de mascotas"
+    ON storage.objects FOR DELETE
+    USING (bucket_id = 'pets' AND public.es_admin());
+
 -- ====================================================================
 -- COMANDOS ÚTILES PARA EL ADMINISTRADOR (Copiar y ejecutar si es necesario):
 -- ====================================================================
 
--- Para ascender un usuario registrado a Administrador:
+-- Para ascender tu usuario registrado a Administrador:
 -- UPDATE public.perfiles SET rol = 'administrador' WHERE correo = 'tu_correo@ejemplo.com';
 
 -- Para consultar los usuarios actuales y sus roles:
--- SELECT id, nombre, correo, rol FROM public.perfiles ORDER BY creado_en DESC;
+-- SELECT id, nombre, correo, rol, creado_en FROM public.perfiles ORDER BY creado_en DESC;

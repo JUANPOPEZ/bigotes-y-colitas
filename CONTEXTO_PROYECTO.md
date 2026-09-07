@@ -51,6 +51,17 @@ Este documento contiene **toda la información técnica, historial de incidencia
 - **Problema:** Durante la integración de `supabase.auth.signUp`, se invocó `await registrarUsuario(...)` dentro de `function enviar(e)` sin haber declarado la función con la palabra clave `async`. Esto provocó un fallo en el plugin transformador de TanStack Router durante el build de Vite en Vercel.
 - **Solución:** Se corrigió la firma a `async function enviar(e: React.FormEvent<HTMLFormElement>)` en `src/routes/auth/registro.tsx`, se agregaron identificadores `name` a los selectores para la captura en FormData y se verificó que ningún otro archivo presentara `await` fuera de funciones asíncronas.
 
+### Incidencia 7: Eliminación de accesos simulados (Demo) y autenticación estricta en `/admin`
+- **Problema:** El formulario de login contenía botones de exploración demo que permitían acceder al panel administrativo sin ingresar credenciales, y `mock-session.ts` almacenaba roles en `localStorage` permitiendo eludir el inicio de sesión real.
+- **Solución:** Se eliminaron por completo los atajos demo en `login.tsx`, se deshabilitó el bypass de `localStorage` en `mock-session.ts`, y se conectó la protección del layout `/admin` directamente a `useAuth()` de Supabase, requiriendo credenciales válidas y perfil verificado con `rol = 'administrador'`.
+
+### Incidencia 8: Corrección del importador y cargador de imágenes en el módulo de mascotas
+- **Problema:** `CampoImagen` utilizaba `URL.createObjectURL(archivo)`, generando URLs temporales `blob:` que se volvían inaccesibles tras recargar la página, no mostraba la foto actual al editar y no permitía ingresar enlaces directos de imágenes web.
+- **Solución:** Se reimplementó `CampoImagen` con soporte dual:
+  1. Subida real a Supabase Storage en el bucket público `pets`, con respaldo automático a Data URL (Base64) si el bucket no estuviese creado o configurado.
+  2. Pestaña para ingresar URLs directas de fotos web (ej. Unsplash).
+  3. Previsualización inmediata, visualización de la foto existente al editar fichas y botón para quitar/reemplazar imagen.
+
 ---
 
 ## 3. Estado de la Base de Datos y RLS (Row Level Security)

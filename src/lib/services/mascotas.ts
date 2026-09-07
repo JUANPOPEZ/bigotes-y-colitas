@@ -111,6 +111,11 @@ export async function crearMascota(formulario: Record<string, string>): Promise<
       ? `${edadMeses} meses`
       : `${Math.floor(edadMeses / 12)} ${Math.floor(edadMeses / 12) === 1 ? "año" : "años"}`;
 
+  const fotoPorDefecto =
+    especie === "Gato"
+      ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+      : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+
   const rowInsert: MascotaInsert = {
     nombre: (formulario.nombre || "").trim(),
     especie: especie,
@@ -132,7 +137,7 @@ export async function crearMascota(formulario: Record<string, string>): Promise<
     historia: formulario.historia || "Rescatado recientemente.",
     salud: formulario.salud || "En buen estado de salud general.",
     destacada: false,
-    galeria: formulario.foto ? [formulario.foto] : [],
+    galeria: formulario.foto && formulario.foto.trim() ? [formulario.foto.trim()] : [fotoPorDefecto],
     ingreso_fecha: formulario.ingreso || new Date().toLocaleDateString("es-CO"),
   };
 
@@ -144,6 +149,9 @@ export async function crearMascota(formulario: Record<string, string>): Promise<
 
   if (error) {
     console.error("[Mascotas Service] Error al insertar en Supabase:", error);
+    if (error.message?.toLowerCase().includes("row-level security") || error.code === "42501") {
+      throw new Error("Acceso denegado (RLS): Debes iniciar sesión con una cuenta de administrador para registrar mascotas.");
+    }
     throw new Error(`Error en Supabase: ${error.message}`);
   }
 
@@ -193,6 +201,9 @@ export async function actualizarMascota(
 
   if (error) {
     console.error("[Mascotas Service] Error al actualizar en Supabase:", error);
+    if (error.message?.toLowerCase().includes("row-level security") || error.code === "42501") {
+      throw new Error("Acceso denegado (RLS): Tu cuenta no tiene permisos de administrador para editar mascotas.");
+    }
     throw new Error(`Error en Supabase: ${error.message}`);
   }
 
@@ -206,6 +217,9 @@ export async function eliminarMascota(id: string): Promise<void> {
   const { error } = await supabase.from("mascotas").delete().eq("id", id);
   if (error) {
     console.error("[Mascotas Service] Error al eliminar de Supabase:", error);
+    if (error.message?.toLowerCase().includes("row-level security") || error.code === "42501") {
+      throw new Error("Acceso denegado (RLS): Tu cuenta no tiene permisos de administrador para eliminar mascotas.");
+    }
     throw new Error(`Error en Supabase: ${error.message}`);
   }
 }

@@ -1,86 +1,36 @@
-import { useSyncExternalStore } from "react";
 import type { Rol } from "@/types";
 import { useAuth } from "@/lib/auth";
 
 /**
- * Sesión de usuario para la interfaz.
- * Si el usuario inicia sesión real con Supabase Auth, se usa su perfil y rol real.
- * Si no, permite simular rol en localStorage para explorar vistas.
+ * Módulo de compatibilidad hacia atrás.
+ * Delega directamente al contexto real de Supabase Auth en @/lib/auth.
  */
 
 const CLAVE = "byc:rol";
-const ROLES: Rol[] = ["visitante", "adoptante", "administrador"];
 
-let rol: Rol = "visitante";
-let hidratado = false;
-const listeners = new Set<() => void>();
-
-function emit() {
-  listeners.forEach((l) => l());
+// Limpiar cualquier residuo de roles simulados en navegadores anteriores
+if (typeof window !== "undefined") {
+  window.localStorage.removeItem(CLAVE);
 }
 
-function hidratar() {
-  if (hidratado || typeof window === "undefined") return;
-  hidratado = true;
-  const guardado = window.localStorage.getItem(CLAVE) as Rol | null;
-  if (guardado && ROLES.includes(guardado) && guardado !== rol) {
-    rol = guardado;
-    emit();
-  }
-}
-
-export function setRolSimulado(nuevo: Rol) {
-  rol = nuevo;
-  hidratado = true;
-  if (typeof window !== "undefined") {
-    if (nuevo === "visitante") window.localStorage.removeItem(CLAVE);
-    else window.localStorage.setItem(CLAVE, nuevo);
-  }
-  emit();
+export function setRolSimulado(_nuevo: Rol) {
+  // Obsoleto: La aplicación ahora utiliza autenticación estricta con Supabase Auth.
 }
 
 export function cerrarSesionSimulada() {
-  setRolSimulado("visitante");
+  // Obsoleto: Delegado a supabase.auth.signOut()
 }
 
 export function useRolSimulado() {
   const auth = useAuth();
-  const actualMock = useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      hidratar();
-      const sincronizar = (e: StorageEvent) => {
-        if (e.key === CLAVE) {
-          rol = (e.newValue as Rol | null) ?? "visitante";
-          emit();
-        }
-      };
-      window.addEventListener("storage", sincronizar);
-      return () => {
-        listeners.delete(l);
-        window.removeEventListener("storage", sincronizar);
-      };
-    },
-    () => rol,
-    () => "visitante" as Rol,
-  );
-
-  if (auth.autenticado) {
-    return {
-      rol: auth.rol,
-      setRol: setRolSimulado,
-      autenticado: true,
-      perfil: auth.perfil,
-      user: auth.user,
-    };
-  }
 
   return {
-    rol: actualMock,
+    rol: auth.rol,
     setRol: setRolSimulado,
-    autenticado: actualMock !== "visitante",
-    perfil: null,
-    user: null,
+    autenticado: auth.autenticado,
+    perfil: auth.perfil,
+    user: auth.user,
+    cargando: auth.cargando,
   };
 }
 

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, UploadCloud, Link as LinkIcon, Loader2, X } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 import {
   AlertDialog,
@@ -101,8 +102,12 @@ export function CrudModule<T extends { id: string }>({
     setSeleccion(item ?? null);
     if (nuevoModo === "editar" && item) {
       const iniciales: Record<string, string> = {};
+      const obj = item as Record<string, unknown>;
       campos.forEach((c) => {
-        const val = (item as Record<string, unknown>)[c.name];
+        let val = obj[c.name];
+        if (c.tipo === "imagen" && (!val || val === "") && Array.isArray(obj.galeria) && obj.galeria.length > 0) {
+          val = obj.galeria[0];
+        }
         iniciales[c.name] = val !== undefined && val !== null ? String(val) : "";
       });
       setValoresForm(iniciales);
@@ -230,6 +235,7 @@ export function CrudModule<T extends { id: string }>({
                 ) : campo.tipo === "imagen" ? (
                   <CampoImagen
                     campo={campo}
+                    valor={valoresForm[campo.name] ?? ""}
                     onImageChange={(val) => actualizarValor(campo.name, val)}
                   />
                 ) : campo.tipo === "select" ? (
@@ -340,51 +346,170 @@ export function bloquearSignoNegativo(e: React.KeyboardEvent<HTMLInputElement>) 
   if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault();
 }
 
-/** Carga de imagen con previsualización local (aún sin backend). */
+/** Carga de imagen con previsualización, subida a Supabase Storage y soporte de enlace directo. */
 function CampoImagen({
   campo,
+  valor = "",
   onImageChange,
 }: {
   campo: CampoFormulario;
+  valor?: string;
   onImageChange?: (val: string) => void;
 }) {
-  const [previa, setPrevia] = useState<string | null>(null);
+  const [previa, setPrevia] = useState<string>(valor);
+  const [modo, setModo] = useState<"archivo" | "url">(
+    valor && valor.startsWith("http") && !valor.includes("supabase.co") ? "url" : "archivo"
+  );
+  const [subiendo, setSubiendo] = useState(false);
+
+  useEffect(() => {
+    setPrevia(valor);
+  }, [valor]);
+
+  const manejarArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    if (!archivo.type.startsWith("image/")) {
+      toast.error("El archivo seleccionado debe ser una imagen (JPG, PNG o WEBP)");
+      return;
+    }
+
+    if (archivo.size > 8 * 1024 * 1024) {
+      toast.error("La imagen no debe superar los 8 MB");
+      return;
+    }
+
+    setSubiendo(true);
+    try {
+      const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const ruta = `mascotas/${Date.now()}_${nombreLimpio}`;
+
+      // 1. Intento de subida a Supabase Storage (bucket 'pets')
+      const { data, error } = await supabase.storage
+        .from("pets")
+        .upload(ruta, archivo, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: archivo.type,
+        });
+
+      if (!error && data) {
+        const { data: publicData } = supabase.storage.from("pets").getPublicUrl(ruta);
+        const urlFinal = publicData.publicUrl;
+        setPrevia(urlFinal);
+        onImageChange?.(urlFinal);
+        toast.success("Imagen subida a Supabase Storage");
+      } else {
+        // 2. Respaldo garantizado: codificación Base64 en caso de que el bucket de storage no esté activo
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          setPrevia(base64);
+          onImageChange?.(base64);
+          toast.success("Imagen cargada y lista para guardar");
+        };
+        reader.readAsDataURL(archivo);
+      }
+    } catch (err) {
+      console.warn("[CampoImagen] Error al procesar imagen, usando fallback Base64:", err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setPrevia(base64);
+        onImageChange?.(base64);
+        toast.success("Imagen cargada y lista para guardar");
+      };
+      reader.readAsDataURL(archivo);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const limpiarImagen = () => {
+    setPrevia("");
+    onImageChange?.("");
+  };
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-cream/60">
-        {previa ? (
-          <img src={previa} alt="Vista previa" className="size-full object-cover" />
-        ) : (
-          <ImagePlus className="size-5 text-muted-foreground" aria-hidden="true" />
-        )}
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={modo === "archivo" ? "secondary" : "ghost"}
+          className="h-7 text-xs"
+          onClick={() => setModo("archivo")}
+        >
+          <UploadCloud className="mr-1.5 size-3.5" />
+          Subir archivo
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={modo === "url" ? "secondary" : "ghost"}
+          className="h-7 text-xs"
+          onClick={() => setModo("url")}
+        >
+          <LinkIcon className="mr-1.5 size-3.5" />
+          Enlace web (URL)
+        </Button>
       </div>
-      <div className="min-w-0 flex-1">
-        <Input
-          id={campo.name}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(e) => {
-            const archivo = e.target.files?.[0];
-            if (!archivo) {
-              setPrevia(null);
-              onImageChange?.("");
-              return;
-            }
-            if (!archivo.type.startsWith("image/")) {
-              toast.error("El archivo debe ser una imagen");
-              return;
-            }
-            if (archivo.size > 5 * 1024 * 1024) {
-              toast.error("La imagen no debe superar 5 MB");
-              return;
-            }
-            const objectUrl = URL.createObjectURL(archivo);
-            setPrevia(objectUrl);
-            onImageChange?.(objectUrl);
-          }}
-        />
-        <p className="mt-1.5 text-xs text-muted-foreground">JPG, PNG o WEBP · máximo 5 MB.</p>
+
+      <div className="flex items-start gap-4">
+        <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-cream/60">
+          {subiendo ? (
+            <Loader2 className="size-6 animate-spin text-primary" />
+          ) : previa ? (
+            <>
+              <img src={previa} alt="Vista previa" className="size-full object-cover" />
+              <button
+                type="button"
+                onClick={limpiarImagen}
+                className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80 transition-colors"
+                title="Quitar imagen"
+              >
+                <X className="size-3.5" />
+              </button>
+            </>
+          ) : (
+            <ImagePlus className="size-6 text-muted-foreground" aria-hidden="true" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {modo === "archivo" ? (
+            <div>
+              <Input
+                id={campo.name}
+                type="file"
+                disabled={subiendo}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={manejarArchivo}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                JPG, PNG o WEBP · Se almacena en la base de datos de Bigotes y Colitas.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <Input
+                id={campo.name}
+                type="url"
+                placeholder="https://images.unsplash.com/photo-..."
+                value={previa}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPrevia(val);
+                  onImageChange?.(val);
+                }}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Pega la dirección URL de una imagen web pública.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
