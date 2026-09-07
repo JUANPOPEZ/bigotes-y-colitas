@@ -2,20 +2,21 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
 /**
- * Vite inyecta VITE_* en el cliente en el build (`import.meta.env`).
- * En el SSR de Vercel (/var/task/_ssr) esas claves suelen venir vacías:
- * hay que leer también `process.env`, que Vercel sí rellena en runtime.
+ * En Vite (cliente), las variables deben llamarse de forma estática y explícita
+ * (`import.meta.env.VITE_*`) para que el compilador las sustituya en el bundle.
+ * En SSR (servidor en Vercel), se toma de `process.env.VITE_*` en runtime.
  */
-function leerEnv(nombre: "VITE_SUPABASE_URL" | "VITE_SUPABASE_ANON_KEY"): string {
-  const desdeVite = import.meta.env[nombre];
-  const desdeRuntime =
-    typeof process !== "undefined" && process.env ? process.env[nombre] : undefined;
-  const valor = (typeof desdeVite === "string" && desdeVite) || desdeRuntime || "";
-  return valor.trim();
-}
+const supabaseUrl = (
+  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_URL) ||
+  (typeof process !== "undefined" && process.env && process.env.VITE_SUPABASE_URL) ||
+  ""
+).trim();
 
-const supabaseUrl = leerEnv("VITE_SUPABASE_URL");
-const supabaseAnonKey = leerEnv("VITE_SUPABASE_ANON_KEY");
+const supabaseAnonKey = (
+  (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) ||
+  (typeof process !== "undefined" && process.env && process.env.VITE_SUPABASE_ANON_KEY) ||
+  ""
+).trim();
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
