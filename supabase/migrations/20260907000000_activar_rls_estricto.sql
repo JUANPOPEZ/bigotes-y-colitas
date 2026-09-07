@@ -18,6 +18,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 1.1 Asegurar trigger para crear perfil con metadatos completos (incluyendo telefono)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.perfiles (id, nombre, correo, rol, ciudad, telefono, avatar_url)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'nombre', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+        NEW.email,
+        COALESCE((NEW.raw_user_meta_data->>'rol')::rol_usuario, 'adoptante'),
+        COALESCE(NEW.raw_user_meta_data->>'ciudad', 'Bogotá'),
+        NEW.raw_user_meta_data->>'telefono',
+        NEW.raw_user_meta_data->>'avatar_url'
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET
+        nombre = EXCLUDED.nombre,
+        telefono = COALESCE(EXCLUDED.telefono, public.perfiles.telefono),
+        ciudad = COALESCE(EXCLUDED.ciudad, public.perfiles.ciudad),
+        avatar_url = COALESCE(EXCLUDED.avatar_url, public.perfiles.avatar_url);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$ BEGIN
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    CREATE TRIGGER on_auth_user_created
+        AFTER INSERT ON auth.users
+        FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+EXCEPTION WHEN undefined_table THEN null; END $$;
+
 -- 2. Habilitar RLS en la tabla mascotas
 ALTER TABLE public.mascotas ENABLE ROW LEVEL SECURITY;
 
