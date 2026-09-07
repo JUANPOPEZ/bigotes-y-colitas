@@ -17,6 +17,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRolSimulado, usuarioDemo } from "@/lib/mock-session";
+import { cerrarSesion as cerrarSesionAuth } from "@/lib/auth";
 import { notificaciones } from "@/mock";
 
 const enlaces = [
@@ -32,13 +33,23 @@ const enlaces = [
 ] as const;
 
 export function Navbar() {
-  const { autenticado, rol, setRol } = useRolSimulado();
+  const { autenticado, rol, setRol, perfil, user } = useRolSimulado();
   const navigate = useNavigate();
 
-  function cerrarSesion() {
+  async function cerrarSesion() {
+    await cerrarSesionAuth();
     setRol("visitante");
     navigate({ to: "/" });
   }
+
+  const nombreUsuario = perfil?.nombre || user?.user_metadata?.nombre || usuarioDemo.nombre;
+  const iniciales =
+    nombreUsuario
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0].toUpperCase())
+      .join("") || "BYC";
 
   const [abierto, setAbierto] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -126,14 +137,14 @@ export function Navbar() {
                   <button className="rounded-full ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                     <Avatar className="size-9">
                       <AvatarFallback className="bg-secondary text-secondary-foreground">
-                        {usuarioDemo.iniciales}
+                        {iniciales}
                       </AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
-                    <p className="text-sm font-medium">{usuarioDemo.nombre}</p>
+                    <p className="text-sm font-medium">{nombreUsuario}</p>
                     <p className="text-xs font-normal text-muted-foreground">
                       Rol: {rol === "administrador" ? "Administrador" : "Adoptante"}
                     </p>

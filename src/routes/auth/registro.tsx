@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { registrarUsuario } from "@/lib/auth";
 import { setRolSimulado } from "@/lib/mock-session";
 import { ciudades } from "@/mock/mascotas";
 import pet3 from "@/assets/pet-3.jpg";
@@ -83,12 +84,24 @@ function Pagina() {
     if (Object.keys(nuevos).length > 0) return;
 
     setCargando(true);
-    window.setTimeout(() => {
+    try {
+      await registrarUsuario({
+        email: String(datos.get("correo") ?? ""),
+        password: clave,
+        nombre: String(datos.get("nombre") ?? ""),
+        telefono: String(datos.get("telefono") ?? ""),
+        ciudad: String(datos.get("ciudad") ?? "Bogotá"),
+        rol: "adoptante",
+      });
       setCargando(false);
-      setRolSimulado("adoptante");
-      toast.success("Cuenta creada. ¡Bienvenida a Bigotes y Colitas!");
+      toast.success("¡Cuenta creada exitosamente en Bigotes y Colitas!");
       navigate({ to: "/cuenta" });
-    }, 800);
+    } catch (err: unknown) {
+      setCargando(false);
+      const msg = err instanceof Error ? err.message : "Error al registrar la cuenta";
+      console.error("[Registro] Error:", msg);
+      toast.error(msg);
+    }
   }
 
   return (

@@ -15,6 +15,7 @@ import {
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
+import { useRolSimulado } from "@/lib/mock-session";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -35,6 +36,32 @@ const enlaces = [
 
 function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { rol, autenticado, perfil } = useRolSimulado();
+
+  if (autenticado && rol !== "administrador") {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center p-6 text-center">
+          <div className="max-w-md space-y-4 rounded-2xl border border-border bg-cream/50 p-8 shadow-sm">
+            <h2 className="font-display text-2xl font-bold text-destructive">Acceso Restringido</h2>
+            <p className="text-sm text-muted-foreground">
+              Tu cuenta ({perfil?.correo || "actual"}) tiene rol de <strong>{rol}</strong>. Esta sección de administración es exclusiva para el equipo de la fundación.
+            </p>
+            <div className="pt-2">
+              <Link
+                to="/cuenta"
+                className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Ir a Mi Cuenta
+              </Link>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -46,7 +73,7 @@ function AdminLayout() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coffee-light">
                 Administración
               </p>
-              <p className="mt-1.5 text-sm font-semibold">Bigotes y Colitas</p>
+              <p className="mt-1.5 text-sm font-semibold">{perfil?.nombre || "Bigotes y Colitas"}</p>
               <Badge variant="secondary" className="mt-2">
                 Rol: Administrador
               </Badge>

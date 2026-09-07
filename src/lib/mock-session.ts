@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from "react";
 import type { Rol } from "@/types";
+import { useAuth } from "@/lib/auth";
 
 /**
- * Sesión SIMULADA únicamente para navegar la interfaz.
- * No hay autenticación real: al conectar el backend, sustituir este store
- * por el contexto de sesión JWT. Se persiste en localStorage para que la
- * cabecera muestre el perfil aunque se recargue la página.
+ * Sesión de usuario para la interfaz.
+ * Si el usuario inicia sesión real con Supabase Auth, se usa su perfil y rol real.
+ * Si no, permite simular rol en localStorage para explorar vistas.
  */
 
 const CLAVE = "byc:rol";
@@ -44,7 +44,8 @@ export function cerrarSesionSimulada() {
 }
 
 export function useRolSimulado() {
-  const actual = useSyncExternalStore(
+  const auth = useAuth();
+  const actualMock = useSyncExternalStore(
     (l) => {
       listeners.add(l);
       hidratar();
@@ -63,7 +64,24 @@ export function useRolSimulado() {
     () => rol,
     () => "visitante" as Rol,
   );
-  return { rol: actual, setRol: setRolSimulado, autenticado: actual !== "visitante" };
+
+  if (auth.autenticado) {
+    return {
+      rol: auth.rol,
+      setRol: setRolSimulado,
+      autenticado: true,
+      perfil: auth.perfil,
+      user: auth.user,
+    };
+  }
+
+  return {
+    rol: actualMock,
+    setRol: setRolSimulado,
+    autenticado: actualMock !== "visitante",
+    perfil: null,
+    user: null,
+  };
 }
 
 export const usuarioDemo = {

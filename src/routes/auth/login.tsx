@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { iniciarSesion } from "@/lib/auth";
 import { setRolSimulado } from "@/lib/mock-session";
 import heroPets from "@/assets/hero-pets.jpg";
 
@@ -45,12 +46,13 @@ function Pagina() {
   const navigate = useNavigate();
   const [ver, setVer] = useState(false);
   const [cargando, setCargando] = useState(false);
-  const [correo, setCorreo] = useState("maria.lopez@correo.com");
-  const [clave, setClave] = useState("demo1234");
+  const [correo, setCorreo] = useState("admin@bigotesycolitas.org");
+  const [clave, setClave] = useState("");
   const [errores, setErrores] = useState<{ correo?: string; clave?: string }>({});
   const [recuperar, setRecuperar] = useState(false);
 
-  function ingresar(rol: "adoptante" | "administrador") {
+  async function manejarLogin(e: React.FormEvent) {
+    e.preventDefault();
     const nuevos: typeof errores = {};
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) nuevos.correo = "Escribe un correo válido.";
     if (clave.length < 6) nuevos.clave = "La contraseña debe tener al menos 6 caracteres.";
@@ -58,14 +60,36 @@ function Pagina() {
     if (Object.keys(nuevos).length > 0) return;
 
     setCargando(true);
-    window.setTimeout(() => {
+    try {
+      const res = await iniciarSesion(correo, clave);
       setCargando(false);
-      setRolSimulado(rol);
-      toast.success(
-        rol === "administrador" ? "Sesión iniciada como administrador" : "¡Bienvenida de vuelta!",
-      );
-      navigate({ to: rol === "administrador" ? "/admin" : "/cuenta" });
-    }, 700);
+      if (res.rol === "administrador") {
+        toast.success(`Bienvenido(a) Administrador ${res.perfil?.nombre || ""}`);
+        navigate({ to: "/admin" });
+      } else {
+        toast.success(`¡Bienvenido(a) de vuelta, ${res.perfil?.nombre || "adoptante"}!`);
+        navigate({ to: "/cuenta" });
+      }
+    } catch (err: unknown) {
+      setCargando(false);
+      const msg = err instanceof Error ? err.message : "Error al iniciar sesión";
+      console.error("[Login] Error:", msg);
+      if (msg.toLowerCase().includes("invalid login credentials")) {
+        toast.error("Correo o contraseña incorrectos. Si aún no tienes cuenta, regístrate o usa el acceso demo.");
+      } else {
+        toast.error(msg);
+      }
+    }
+  }
+
+  function ingresarDemo(rol: "adoptante" | "administrador") {
+    setRolSimulado(rol);
+    toast.success(
+      rol === "administrador"
+        ? "Sesión iniciada como administrador (Modo Exploración)"
+        : "Sesión iniciada como adoptante (Modo Exploración)",
+    );
+    navigate({ to: rol === "administrador" ? "/admin" : "/cuenta" });
   }
 
   return (
@@ -105,13 +129,7 @@ function Pagina() {
 
           <Card className="mt-8 border-border/80 shadow-none">
             <CardContent className="p-6">
-              <form
-                className="space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  ingresar("adoptante");
-                }}
-              >
+              <form className="space-y-4" onSubmit={manejarLogin}>
                 <div>
                   <Label htmlFor="correo" className="mb-1.5 block">
                     Correo electrónico
@@ -185,11 +203,11 @@ function Pagina() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" onClick={() => ingresar("adoptante")}>
-                  Entrar como adoptante
+                <Button variant="outline" type="button" onClick={() => ingresarDemo("adoptante")}>
+                  Entrar como adoptante (Demo)
                 </Button>
-                <Button variant="outline" onClick={() => ingresar("administrador")}>
-                  Entrar como admin
+                <Button variant="outline" type="button" onClick={() => ingresarDemo("administrador")}>
+                  Entrar como admin (Demo)
                 </Button>
               </div>
             </CardContent>
