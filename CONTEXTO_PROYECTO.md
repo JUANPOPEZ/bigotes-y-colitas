@@ -43,6 +43,14 @@ Este documento contiene **toda la información técnica, historial de incidencia
   2. En `src/lib/supabase.ts`, se definieron como respaldo las credenciales públicas oficiales del proyecto.
   3. En `vite.config.ts`, se agregó la directiva `define` para forzar la inyección estática de `import.meta.env.VITE_SUPABASE_*` en el bundle del cliente.
 
+### Incidencia 5: Permisos de Git CLI en Windows (Error 403 al hacer push)
+- **Problema:** En el entorno local de Windows, el *Git Credential Manager* (GCM) tenía en caché la cuenta `NkAlejandro` en vez de `JUANPOPEZ`.
+- **Solución:** Los commits y pushes se gestionan de forma confiable a través de **GitHub Desktop**, donde la cuenta `JUANPOPEZ` se encuentra debidamente autenticada.
+
+### Incidencia 6: Error de compilación en Vercel `Unexpected reserved word 'await'` (Commit `faa8446`)
+- **Problema:** Durante la integración de `supabase.auth.signUp`, se invocó `await registrarUsuario(...)` dentro de `function enviar(e)` sin haber declarado la función con la palabra clave `async`. Esto provocó un fallo en el plugin transformador de TanStack Router durante el build de Vite en Vercel.
+- **Solución:** Se corrigió la firma a `async function enviar(e: React.FormEvent<HTMLFormElement>)` en `src/routes/auth/registro.tsx`, se agregaron identificadores `name` a los selectores para la captura en FormData y se verificó que ningún otro archivo presentara `await` fuera de funciones asíncronas.
+
 ---
 
 ## 3. Estado de la Base de Datos y RLS (Row Level Security)

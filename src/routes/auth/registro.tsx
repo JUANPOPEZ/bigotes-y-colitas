@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { registrarUsuario } from "@/lib/auth";
-import { setRolSimulado } from "@/lib/mock-session";
 import { ciudades } from "@/mock/mascotas";
 import pet3 from "@/assets/pet-3.jpg";
 
@@ -68,7 +67,7 @@ function Pagina() {
   const nivel = fuerza(clave);
   const etiquetaNivel = nivel >= 100 ? "Segura" : nivel >= 67 ? "Aceptable" : "Débil";
 
-  function enviar(e: React.FormEvent<HTMLFormElement>) {
+  async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const datos = new FormData(e.currentTarget);
     const nuevos: Record<string, string> = {};
@@ -182,7 +181,7 @@ function Pagina() {
                   <Label htmlFor="ciudad" className="mb-1.5 block">
                     Ciudad
                   </Label>
-                  <Select defaultValue={ciudades[0]}>
+                  <Select name="ciudad" defaultValue={ciudades[0]}>
                     <SelectTrigger id="ciudad">
                       <SelectValue placeholder="Selecciona tu ciudad" />
                     </SelectTrigger>
@@ -200,7 +199,7 @@ function Pagina() {
                   <Label htmlFor="tipo-vivienda" className="mb-1.5 block">
                     Tipo de vivienda
                   </Label>
-                  <Select defaultValue="Apartamento">
+                  <Select name="tipoVivienda" defaultValue="Apartamento">
                     <SelectTrigger id="tipo-vivienda">
                       <SelectValue />
                     </SelectTrigger>

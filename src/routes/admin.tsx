@@ -38,7 +38,7 @@ function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { rol, autenticado, perfil } = useRolSimulado();
 
-  if (autenticado && rol !== "administrador") {
+  if (rol !== "administrador") {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Navbar />
@@ -46,14 +46,16 @@ function AdminLayout() {
           <div className="max-w-md space-y-4 rounded-2xl border border-border bg-cream/50 p-8 shadow-sm">
             <h2 className="font-display text-2xl font-bold text-destructive">Acceso Restringido</h2>
             <p className="text-sm text-muted-foreground">
-              Tu cuenta ({perfil?.correo || "actual"}) tiene rol de <strong>{rol}</strong>. Esta sección de administración es exclusiva para el equipo de la fundación.
+              {autenticado
+                ? `Tu cuenta (${perfil?.correo || "actual"}) tiene rol de ${rol}. Esta sección de administración es exclusiva para el equipo de la fundación.`
+                : "Debes iniciar sesión con una cuenta con permisos de administrador para acceder a esta sección."}
             </p>
             <div className="pt-2">
               <Link
-                to="/cuenta"
+                to={autenticado ? "/cuenta" : "/auth/login"}
                 className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Ir a Mi Cuenta
+                {autenticado ? "Ir a Mi Cuenta" : "Iniciar sesión como Administrador"}
               </Link>
             </div>
           </div>
