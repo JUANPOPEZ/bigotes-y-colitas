@@ -1,9 +1,9 @@
 import type { Rol } from "@/types";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ingresarComoDemo, cerrarSesion } from "@/lib/auth";
 
 /**
  * Módulo de compatibilidad hacia atrás.
- * Delega directamente al contexto real de Supabase Auth en @/lib/auth.
+ * Delega directamente al contexto de autenticación en @/lib/auth.
  */
 
 const CLAVE = "byc:rol";
@@ -13,12 +13,16 @@ if (typeof window !== "undefined") {
   window.localStorage.removeItem(CLAVE);
 }
 
-export function setRolSimulado(_nuevo: Rol) {
-  // Obsoleto: La aplicación ahora utiliza autenticación estricta con Supabase Auth.
+export function setRolSimulado(nuevo: Rol) {
+  if (nuevo === "administrador" || nuevo === "adoptante") {
+    ingresarComoDemo(nuevo);
+  } else {
+    cerrarSesion();
+  }
 }
 
 export function cerrarSesionSimulada() {
-  // Obsoleto: Delegado a supabase.auth.signOut()
+  cerrarSesion();
 }
 
 export function useRolSimulado() {

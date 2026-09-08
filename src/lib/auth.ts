@@ -203,3 +203,68 @@ export async function cerrarSesion(): Promise<void> {
   };
   emitir();
 }
+
+/**
+ * Inicia el flujo de autenticación con Google OAuth usando la instancia oficial de Supabase.
+ */
+export async function iniciarSesionConGoogle(): Promise<void> {
+  const redirectUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback`
+      : "https://bigotes-y-colitas.vercel.app/auth/callback";
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: redirectUrl,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || "Error al iniciar sesión con Google.");
+  }
+}
+
+/**
+ * Permite acceder en modo de exploración / demo sin bloquear la UI ni depender de red.
+ * Notifica a useAuth() reactivamente para reflejar el rol correspondiente.
+ */
+export function ingresarComoDemo(rol: "adoptante" | "administrador"): void {
+  const userDemo: User = {
+    id: rol === "administrador" ? "demo-admin-id" : "demo-adoptante-id",
+    app_metadata: {},
+    user_metadata: {
+      nombre: rol === "administrador" ? "Administrador Demo" : "María Fernanda López",
+      rol,
+    },
+    aud: "authenticated",
+    created_at: new Date().toISOString(),
+    email: rol === "administrador" ? "admin@bigotesycolitas.org" : "maria.lopez@correo.com",
+    phone: "3001234567",
+    role: "authenticated",
+    updated_at: new Date().toISOString(),
+  };
+
+  const perfilDemo: PerfilRow = {
+    id: userDemo.id,
+    nombre: rol === "administrador" ? "Administrador Demo" : "María Fernanda López",
+    correo: userDemo.email!,
+    rol,
+    ciudad: "Bogotá",
+    telefono: "3001234567",
+    avatar_url: null,
+    creado_en: new Date().toISOString(),
+    actualizado_en: new Date().toISOString(),
+  };
+
+  estadoGlobal = {
+    user: userDemo,
+    session: null,
+    perfil: perfilDemo,
+    rol,
+    autenticado: true,
+    cargando: false,
+  };
+  emitir();
+}
+

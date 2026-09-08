@@ -62,6 +62,15 @@ Este documento contiene **toda la información técnica, historial de incidencia
   2. Pestaña para ingresar URLs directas de fotos web (ej. Unsplash).
   3. Previsualización inmediata, visualización de la foto existente al editar fichas y botón para quitar/reemplazar imagen.
 
+### Incidencia 9: Restauración de accesos demo y habilitación de Google OAuth
+- **Problema:** Tras la implementación de la validación estricta de campos, los accesos rápidos por rol ("Entrar como Administrador" y "Entrar como Adoptante") habían sido removidos por error en `login.tsx`. Además, faltaba el soporte oficial para autenticación con Google (Google OAuth) y la ruta de retorno (`/auth/callback`).
+- **Solución:**
+  1. Se restauraron los botones de acceso rápido por rol en `src/routes/auth/login.tsx` utilizando `type="button"`, desacoplados completamente del validador de campos manuales (funcionan sin bloquearse si los campos de correo/clave están vacíos).
+  2. Se implementó `ingresarComoDemo(rol)` en `src/lib/auth.ts` para alimentar reactivamente el estado de `useAuth()`.
+  3. Se agregó `iniciarSesionConGoogle()` en `src/lib/auth.ts` utilizando el cliente único exportado en `src/lib/supabase.ts`.
+  4. Se añadieron botones de *"Continuar con Google"* en `login.tsx` y *"Registrarse con Google"* en `registro.tsx`.
+  5. Se creó la ruta `src/routes/auth/callback.tsx` para recibir el token OAuth, consultar `public.perfiles` y redirigir condicionalmente a `/admin` o `/cuenta`.
+
 ---
 
 ## 3. Estado de la Base de Datos y RLS (Row Level Security)
@@ -93,20 +102,26 @@ Este documento contiene **toda la información técnica, historial de incidencia
 ## 4. Autenticación Real y Roles Implementados
 
 ### Módulos Conectados:
-1. **`src/lib/auth.ts`:**
-   - Servicio central de autenticación con Supabase (`supabase.auth.signInWithPassword`, `signUp`, `signOut`, `getSession`, `onAuthStateChange`).
+1. **`src/lib/supabase.ts`:**
+   - Único cliente oficial de Supabase (`createClient<Database>`). Todas las funciones del frontend importan de aquí (`import { supabase } from "@/lib/supabase"`).
+2. **`src/lib/auth.ts`:**
+   - Servicio central de autenticación con Supabase (`supabase.auth.signInWithPassword`, `signInWithOAuth`, `signUp`, `signOut`, `getSession`, `onAuthStateChange`).
    - Hook `useAuth()` que expone `user`, `session`, `perfil`, `rol` (`'visitante'` | `'adoptante'` | `'administrador'`), `autenticado`, `cargando`.
-2. **`src/routes/auth/login.tsx`:**
-   - Formulario de login real conectado a Supabase Auth.
-   - Redirección condicional:
-     - Rol `'administrador'` → Redirige automáticamente a `/admin`.
-     - Rol `'adoptante'` → Redirige a `/cuenta`.
-   - Botones de exploración rápida (demo) preservados para pruebas y evaluaciones sin conexión obligatoria.
-3. **`src/routes/auth/registro.tsx`:**
-   - Formulario conectado a `supabase.auth.signUp`.
-   - Asigna rol `'adoptante'` y dispara el trigger `handle_new_user()` que crea el registro en `public.perfiles`.
-4. **`src/routes/admin.tsx`:**
-   - Layout del panel administrativo protegido: si un usuario con rol distinto a `'administrador'` intenta ingresar, muestra pantalla de "Acceso Restringido" y botón para volver a su panel de adoptante.
-5. **`src/components/layout/navbar.tsx`:**
-   - Muestra el nombre real, iniciales y badge del rol (`Administrador` o `Adoptante`) del usuario logueado.
-   - Botón "Cerrar sesión" funcional que llama a `supabase.auth.signOut()`.
+   - Función `ingresarComoDemo(rol)` para exploración inmediata en interfaz.
+3. **`src/routes/auth/login.tsx`:**
+   - Formulario de login manual con validación estricta de formato y longitud.
+   - Botón oficial *"Continuar con Google"*.
+   - Botones de exploración rápida (demo) para `'administrador'` y `'adoptante'`, independientes del formulario manual.
+   - Redirección condicional automática (`/admin` para administrador, `/cuenta` para adoptante).
+4. **`src/routes/auth/registro.tsx`:**
+   - Formulario estricto conectado a `supabase.auth.signUp` con firma asíncrona validada.
+   - Botón oficial *"Registrarse con Google"*.
+   - Asigna rol `'adoptante'` y sincroniza con el trigger `handle_new_user()`.
+5. **`src/routes/auth/callback.tsx`:**
+   - Ruta de resolución para Google OAuth, consulta `public.perfiles` y redirige a `/admin` o `/cuenta`.
+6. **`src/routes/admin.tsx`:**
+   - Layout administrativo protegido: acceso condicionado a `autenticado && rol === 'administrador'`.
+7. **`src/components/layout/navbar.tsx`:**
+   - Muestra nombre, iniciales y badge del rol (`Administrador` o `Adoptante`) en tiempo real.
+   - Menú con acceso a panel admin o adoptante y botón de "Cerrar sesión" funcional con `supabase.auth.signOut()`.
+
