@@ -7,7 +7,13 @@
 --    EDITAR (UPDATE) o ELIMINAR (DELETE) mascotas.
 -- ====================================================================
 
--- 1. Asegurar función para verificar si el usuario autenticado es administrador
+-- 1. Asegurar columnas y extensiones en la tabla perfiles
+ALTER TABLE public.perfiles ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE public.perfiles ADD COLUMN IF NOT EXISTS ciudad TEXT DEFAULT 'Bogotá';
+ALTER TABLE public.perfiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.perfiles ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'Activo';
+
+-- 1.1 Asegurar función para verificar si el usuario autenticado es administrador
 CREATE OR REPLACE FUNCTION public.es_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -16,31 +22,65 @@ BEGIN
         WHERE id = auth.uid() AND rol = 'administrador'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
--- 1.1 Asegurar trigger para crear perfil con metadatos completos (incluyendo telefono)
+-- 1.2 Trigger ultraseguro para crear perfil automáticamente al registrarse en auth.users
+-- Con manejo de excepciones para que NUNCA bloquee la creación de usuarios con 'Database error saving new user'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog, auth
+AS $$
+DECLARE
+    v_nombre TEXT;
+    v_ciudad TEXT;
+    v_rol rol_usuario := 'adoptante';
 BEGIN
-    INSERT INTO public.perfiles (id, nombre, correo, rol, ciudad, telefono, avatar_url)
+    -- Extraer nombre con prioridad: nombre de formulario, Google full_name, name o email
+    v_nombre := COALESCE(
+        NEW.raw_user_meta_data->>'nombre',
+        NEW.raw_user_meta_data->>'full_name',
+        NEW.raw_user_meta_data->>'name',
+        split_part(NEW.email, '@', 1),
+        'Usuario'
+    );
+
+    -- Asignación segura del rol sin fallo de conversión
+    IF NEW.raw_user_meta_data->>'rol' = 'administrador' THEN
+        v_rol := 'administrador';
+    ELSE
+        v_rol := 'adoptante';
+    END IF;
+
+    v_ciudad := COALESCE(NEW.raw_user_meta_data->>'ciudad', 'Bogotá');
+
+    INSERT INTO public.perfiles (id, nombre, correo, rol, ciudad, telefono, avatar_url, estado)
     VALUES (
         NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'nombre', NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-        NEW.email,
-        COALESCE((NEW.raw_user_meta_data->>'rol')::rol_usuario, 'adoptante'),
-        COALESCE(NEW.raw_user_meta_data->>'ciudad', 'Bogotá'),
+        v_nombre,
+        COALESCE(NEW.email, ''),
+        v_rol,
+        v_ciudad,
         NEW.raw_user_meta_data->>'telefono',
-        NEW.raw_user_meta_data->>'avatar_url'
+        COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture'),
+        'Activo'
     )
     ON CONFLICT (id) DO UPDATE
     SET
         nombre = EXCLUDED.nombre,
+        correo = EXCLUDED.correo,
         telefono = COALESCE(EXCLUDED.telefono, public.perfiles.telefono),
         ciudad = COALESCE(EXCLUDED.ciudad, public.perfiles.ciudad),
         avatar_url = COALESCE(EXCLUDED.avatar_url, public.perfiles.avatar_url);
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Registrar advertencia en logs de Supabase pero NUNCA abortar la creación del usuario en auth.users
+    RAISE WARNING 'Error en public.handle_new_user: %', SQLERRM;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DO $$ BEGIN
     DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -87,11 +127,16 @@ ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Lectura publica de perfiles basicos" ON public.perfiles;
 DROP POLICY IF EXISTS "Usuarios pueden actualizar su propio perfil" ON public.perfiles;
+DROP POLICY IF EXISTS "Permitir insercion de perfil propio o trigger" ON public.perfiles;
 DROP POLICY IF EXISTS "Admins pueden gestionar todos los perfiles" ON public.perfiles;
 
 CREATE POLICY "Lectura publica de perfiles basicos"
     ON public.perfiles FOR SELECT
     USING (true);
+
+CREATE POLICY "Permitir insercion de perfil propio o trigger"
+    ON public.perfiles FOR INSERT
+    WITH CHECK (true);
 
 CREATE POLICY "Usuarios pueden actualizar su propio perfil"
     ON public.perfiles FOR UPDATE
@@ -100,6 +145,9 @@ CREATE POLICY "Usuarios pueden actualizar su propio perfil"
 CREATE POLICY "Admins pueden gestionar todos los perfiles"
     ON public.perfiles FOR ALL
     USING (public.es_admin());
+
+-- Otorgar permisos necesarios sobre la tabla perfiles
+GRANT ALL ON TABLE public.perfiles TO postgres, authenticated, anon, service_role;
 
 -- 6. Asegurar Storage Bucket 'pets' para fotos de mascotas
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
