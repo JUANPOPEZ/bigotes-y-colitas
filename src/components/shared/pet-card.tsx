@@ -21,6 +21,14 @@ export function PetCard({ mascota }: { mascota: Mascota }) {
           loading="lazy"
           width={800}
           height={600}
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.onerror = null;
+            target.src =
+              mascota.especie === "Gato"
+                ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+                : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+          }}
           className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute left-3 top-3">

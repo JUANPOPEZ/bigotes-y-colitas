@@ -98,7 +98,7 @@ function Pagina() {
 
     setCargando(true);
     try {
-      await registrarUsuario({
+      const res = await registrarUsuario({
         email: String(datos.get("correo") ?? ""),
         password: clave,
         nombre: String(datos.get("nombre") ?? ""),
@@ -107,8 +107,15 @@ function Pagina() {
         rol: "adoptante",
       });
       setCargando(false);
-      toast.success("¡Cuenta creada exitosamente en Bigotes y Colitas!");
-      navigate({ to: "/cuenta" });
+      if (res.session) {
+        toast.success("¡Cuenta creada exitosamente en Bigotes y Colitas!");
+        navigate({ to: "/cuenta" });
+      } else {
+        toast.success(
+          "¡Cuenta creada exitosamente! Ya puedes iniciar sesión con tus credenciales.",
+        );
+        navigate({ to: "/auth/login" });
+      }
     } catch (err: unknown) {
       setCargando(false);
       const msg = err instanceof Error ? err.message : "Error al registrar la cuenta";

@@ -90,6 +90,14 @@ function Pagina() {
               alt={`${mascota.nombre}, ${mascota.especie.toLowerCase()} ${mascota.raza} en adopción`}
               width={1000}
               height={750}
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.onerror = null;
+                target.src =
+                  mascota.especie === "Gato"
+                    ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+                    : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+              }}
               className="aspect-[4/3] w-full object-cover"
             />
           </div>
@@ -106,7 +114,19 @@ function Pagina() {
                     i === imagen ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <img src={g} alt="" className="size-full object-cover" />
+                  <img
+                    src={g}
+                    alt=""
+                    className="size-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src =
+                        mascota.especie === "Gato"
+                          ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+                          : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+                    }}
+                  />
                 </button>
               ))}
             </div>

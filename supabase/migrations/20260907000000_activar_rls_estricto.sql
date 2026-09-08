@@ -158,19 +158,25 @@ ON CONFLICT (id) DO UPDATE SET
 
 DROP POLICY IF EXISTS "Lectura publica de fotos de mascotas" ON storage.objects;
 DROP POLICY IF EXISTS "Admins suben fotos de mascotas" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir subir fotos al bucket pets" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir actualizar fotos en pets" ON storage.objects;
 DROP POLICY IF EXISTS "Admins eliminan fotos de mascotas" ON storage.objects;
 
 CREATE POLICY "Lectura publica de fotos de mascotas"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'pets');
 
-CREATE POLICY "Admins suben fotos de mascotas"
+CREATE POLICY "Permitir subir fotos al bucket pets"
     ON storage.objects FOR INSERT
-    WITH CHECK (bucket_id = 'pets' AND (public.es_admin() OR auth.role() = 'authenticated'));
+    WITH CHECK (bucket_id = 'pets');
+
+CREATE POLICY "Permitir actualizar fotos en pets"
+    ON storage.objects FOR UPDATE
+    USING (bucket_id = 'pets');
 
 CREATE POLICY "Admins eliminan fotos de mascotas"
     ON storage.objects FOR DELETE
-    USING (bucket_id = 'pets' AND public.es_admin());
+    USING (bucket_id = 'pets' AND (public.es_admin() OR auth.role() = 'authenticated'));
 
 -- ====================================================================
 -- COMANDOS ÚTILES PARA EL ADMINISTRADOR (Copiar y ejecutar si es necesario):

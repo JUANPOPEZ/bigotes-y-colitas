@@ -30,6 +30,7 @@ import { EstadoBadge } from "@/components/shared/estado-badge";
 import { SectionHeader } from "@/components/shared/section-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { obtenerMascotas } from "@/lib/services/mascotas";
+import { useAuth } from "@/lib/auth";
 import type { Mascota } from "@/types";
 import { denuncias, eventos, historias, kpis, productos } from "@/mock";
 
@@ -86,15 +87,35 @@ function Landing() {
 
   const destacadas = listaMascotas.filter((m) => m.destacada && m.estado !== "Adoptado").slice(0, 4);
   const destacados = productos.filter((p) => p.destacado).slice(0, 3);
+  const { autenticado, perfil, user, rol } = useAuth();
+  const nombreUsuario =
+    perfil?.nombre ||
+    user?.user_metadata?.nombre ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    (user?.email ? user.email.split("@")[0] : null);
 
   return (
     <div>
       <section className="border-b border-border bg-cream">
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
           <div>
-            <Badge variant="secondary" className="mb-5 rounded-full px-3 py-1">
-              <Sparkles className="mr-1.5 size-3.5" /> Adopción responsable
-            </Badge>
+            {autenticado && nombreUsuario && (
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                <PawPrint className="size-4 text-primary" />
+                <span>
+                  ¡Hola, <strong className="font-semibold text-foreground">{nombreUsuario}</strong>! Bienvenido(a)
+                </span>
+                <span className="ml-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold capitalize text-primary">
+                  {rol === "administrador" ? "Administrador" : "Adoptante"}
+                </span>
+              </div>
+            )}
+            <div>
+              <Badge variant="secondary" className="mb-5 rounded-full px-3 py-1">
+                <Sparkles className="mr-1.5 size-3.5" /> Adopción responsable
+              </Badge>
+            </div>
             <h1 className="font-display text-4xl font-semibold leading-[1.1] sm:text-5xl lg:text-6xl">
               Encuentra un hogar para toda la vida.
             </h1>

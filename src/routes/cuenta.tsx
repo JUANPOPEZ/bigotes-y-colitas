@@ -14,6 +14,7 @@ import { Footer } from "@/components/layout/footer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { usuarioDemo } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 import { notificaciones } from "@/mock";
 
 export const Route = createFileRoute("/cuenta")({
@@ -33,6 +34,22 @@ const enlaces = [
 function CuentaLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const sinLeer = notificaciones.filter((n) => !n.leida).length;
+  const { user, perfil, rol } = useAuth();
+
+  const nombre =
+    perfil?.nombre ||
+    user?.user_metadata?.nombre ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    usuarioDemo.nombre;
+  const correo = perfil?.correo || user?.email || usuarioDemo.correo;
+  const iniciales =
+    nombre
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0].toUpperCase())
+      .join("") || "BYC";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -44,12 +61,15 @@ function CuentaLayout() {
               <div className="flex items-center gap-3">
                 <Avatar className="size-11">
                   <AvatarFallback className="bg-secondary text-secondary-foreground">
-                    {usuarioDemo.iniciales}
+                    {iniciales}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{usuarioDemo.nombre}</p>
-                  <p className="truncate text-xs text-muted-foreground">{usuarioDemo.correo}</p>
+                  <p className="truncate text-sm font-semibold">{nombre}</p>
+                  <p className="truncate text-xs text-muted-foreground">{correo}</p>
+                  <Badge variant="outline" className="mt-1 text-[10px] capitalize">
+                    {rol === "administrador" ? "Administrador" : "Adoptante"}
+                  </Badge>
                 </div>
               </div>
             </div>

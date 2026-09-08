@@ -76,6 +76,8 @@ function Pagina() {
       console.error("[Login] Error:", msg);
       if (msg.toLowerCase().includes("invalid login credentials")) {
         toast.error("Correo o contraseña incorrectos. Verifica tus credenciales o regístrate si no tienes cuenta.");
+      } else if (msg.toLowerCase().includes("email not confirmed")) {
+        toast.error("Tu correo aún no ha sido confirmado. Puedes desactivar la confirmación obligatoria de email en el panel de Supabase o confirmar tu cuenta.");
       } else {
         toast.error(msg);
       }

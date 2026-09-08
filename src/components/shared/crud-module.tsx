@@ -399,15 +399,18 @@ function CampoImagen({
         const urlFinal = publicData.publicUrl;
         setPrevia(urlFinal);
         onImageChange?.(urlFinal);
-        toast.success("Imagen subida a Supabase Storage");
+        toast.success("Imagen guardada en Supabase Storage (bucket 'pets')");
       } else {
-        // 2. Respaldo garantizado: codificación Base64 en caso de que el bucket de storage no esté activo
+        console.error("[CampoImagen] Error al subir a Supabase Storage:", error?.message);
+        toast.error(
+          `Aviso: No se pudo subir al bucket 'pets' (${error?.message || "crea el bucket en Supabase"}). Se usará copia local.`
+        );
+        // Respaldo garantizado: codificación Base64 en caso de que el bucket de storage no esté activo
         const reader = new FileReader();
         reader.onload = () => {
           const base64 = reader.result as string;
           setPrevia(base64);
           onImageChange?.(base64);
-          toast.success("Imagen cargada y lista para guardar");
         };
         reader.readAsDataURL(archivo);
       }

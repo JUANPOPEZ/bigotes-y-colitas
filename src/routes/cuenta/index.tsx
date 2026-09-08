@@ -9,6 +9,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { conversaciones, donaciones, notificaciones, solicitudes } from "@/mock";
 import { mascotas } from "@/mock/mascotas";
 import { usuarioDemo } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/cuenta/")({
   head: () => ({
@@ -34,9 +35,19 @@ export const Route = createFileRoute("/cuenta/")({
 const pasos = ["Pendiente", "En revisión", "Entrevista", "Visita", "Aprobada"];
 
 function Pagina() {
-  const mias = solicitudes.filter((s) => s.correo === usuarioDemo.correo);
+  const { user, perfil } = useAuth();
+  const nombre =
+    perfil?.nombre ||
+    user?.user_metadata?.nombre ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    usuarioDemo.nombre;
+  const primerNombre = nombre.split(" ")[0];
+  const correo = perfil?.correo || user?.email || usuarioDemo.correo;
+
+  const mias = solicitudes.filter((s) => s.correo === correo);
   const activa = mias.find((s) => s.estado !== "Aprobada" && s.estado !== "Rechazada");
-  const misDonaciones = donaciones.filter((d) => d.donante === usuarioDemo.nombre);
+  const misDonaciones = donaciones.filter((d) => d.donante === nombre);
   const favoritas = mascotas.slice(0, 3);
   const indicePaso = activa ? pasos.indexOf(activa.estado) : -1;
 
@@ -44,7 +55,7 @@ function Pagina() {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-2xl font-semibold sm:text-3xl">
-          Hola, {usuarioDemo.nombre.split(" ")[0]}
+          Hola, {primerNombre}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Este es el estado de tu actividad en la fundación.
