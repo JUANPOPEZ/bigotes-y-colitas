@@ -33,6 +33,7 @@ import { Route as AdminProductosRouteImport } from './routes/admin/productos'
 import { Route as AdminReportesRouteImport } from './routes/admin/reportes'
 import { Route as AdminSolicitudesRouteImport } from './routes/admin/solicitudes'
 import { Route as AdminUsuariosRouteImport } from './routes/admin/usuarios'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthRegistroRouteImport } from './routes/auth/registro'
 import { Route as CuentaIndexRouteImport } from './routes/cuenta/index'
@@ -164,6 +165,11 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/auth/login',
   path: '/auth/login',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/admin/reportes': typeof AdminReportesRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/registro': typeof AuthRegistroRoute
   '/cuenta/donaciones': typeof CuentaDonacionesRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/admin/reportes': typeof AdminReportesRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/registro': typeof AuthRegistroRoute
   '/cuenta/donaciones': typeof CuentaDonacionesRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/admin/reportes': typeof AdminReportesRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/registro': typeof AuthRegistroRoute
   '/cuenta/donaciones': typeof CuentaDonacionesRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/admin/reportes'
     | '/admin/solicitudes'
     | '/admin/usuarios'
+    | '/auth/callback'
     | '/auth/login'
     | '/auth/registro'
     | '/cuenta/donaciones'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/admin/reportes'
     | '/admin/solicitudes'
     | '/admin/usuarios'
+    | '/auth/callback'
     | '/auth/login'
     | '/auth/registro'
     | '/cuenta/donaciones'
@@ -423,6 +434,7 @@ export interface FileRouteTypes {
     | '/admin/reportes'
     | '/admin/solicitudes'
     | '/admin/usuarios'
+    | '/auth/callback'
     | '/auth/login'
     | '/auth/registro'
     | '/cuenta/donaciones'
@@ -442,6 +454,7 @@ export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   CuentaRoute: typeof CuentaRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegistroRoute: typeof AuthRegistroRoute
 }
@@ -616,6 +629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/login': {
       id: '/auth/login'
       path: '/auth/login'
@@ -785,6 +805,7 @@ const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   CuentaRoute: CuentaRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegistroRoute: AuthRegistroRoute,
 }

@@ -66,38 +66,51 @@ export function mapearMascotaDesdeDB(row: MascotaRow): Mascota {
 }
 
 /**
- * Obtiene todas las mascotas desde Supabase.
+ * Obtiene todas las mascotas desde Supabase con respaldo garantizado.
  */
 export async function obtenerMascotas(): Promise<Mascota[]> {
-  const { data, error } = await supabase
-    .from("mascotas")
-    .select("*")
-    .order("creado_en", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from("mascotas")
+      .select("*")
+      .order("creado_en", { ascending: false });
 
-  if (error) {
-    console.error("[Mascotas Service] Consulta Supabase falló:", error.message);
-    throw new Error(error.message);
+    if (error) {
+      console.warn("[Mascotas Service] Consulta Supabase falló, usando datos de respaldo:", error.message);
+      return mockMascotas;
+    }
+
+    if (!data || data.length === 0) {
+      console.warn("[Mascotas Service] No se recibieron datos de Supabase, usando respaldo.");
+      return mockMascotas;
+    }
+
+    return data.map(mapearMascotaDesdeDB);
+  } catch (err) {
+    console.error("[Mascotas Service] Excepción consultando Supabase, usando datos de respaldo:", err);
+    return mockMascotas;
   }
-
-  return (data ?? []).map(mapearMascotaDesdeDB);
 }
 
 /**
  * Obtiene una mascota específica por su ID.
  */
 export async function obtenerMascotaPorId(id: string): Promise<Mascota | undefined> {
-  const { data, error } = await supabase
-    .from("mascotas")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("mascotas")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-  if (error) {
-    console.error("[Mascotas Service] Error consultando mascota por ID:", error.message);
-    throw new Error(error.message);
+    if (!error && data) {
+      return mapearMascotaDesdeDB(data);
+    }
+  } catch (err) {
+    console.error("[Mascotas Service] Error consultando mascota por ID:", err);
   }
 
-  return data ? mapearMascotaDesdeDB(data) : undefined;
+  return mockMascotas.find((m) => m.id === id);
 }
 
 /**

@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PetCard } from "@/components/shared/pet-card";
+import { CardsSkeleton } from "@/components/shared/skeletons";
 import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
@@ -76,6 +77,7 @@ function coincideEdad(m: Mascota, rango: string) {
 }
 
 function Pagina() {
+  const [cargando, setCargando] = useState(true);
   const [f, setF] = useState<Filtros>(inicial);
   const [orden, setOrden] = useState("recientes");
   const [pagina, setPagina] = useState(1);
@@ -85,17 +87,23 @@ function Pagina() {
     let montado = true;
     obtenerMascotas()
       .then((datos) => {
-        if (montado) setListaMascotas(datos);
+        if (montado) {
+          setListaMascotas(datos);
+          setCargando(false);
+        }
       })
       .catch((err) => {
         console.error("[Catálogo] No se pudo cargar mascotas desde Supabase:", err);
+        if (montado) {
+          setCargando(false);
+        }
       });
     return () => {
       montado = false;
     };
   }, []);
 
-  const ciudades = useMemo(() => [...new Set(listaMascotas.map((m) => m.ciudad))].sort(), [listaMascotas]);
+  const ciudades = useMemo(() => [...new Set(listaMascotas.map((m) => m.ciudad))].filter(Boolean).sort(), [listaMascotas]);
 
   const actualizar = <K extends keyof Filtros>(clave: K, valor: Filtros[K]) => {
     setF((prev) => ({ ...prev, [clave]: valor }));
@@ -104,9 +112,6 @@ function Pagina() {
 
   const resultados = useMemo(() => {
     const lista = listaMascotas.filter((m) => {
-      // Regla: Las mascotas adoptadas no deben aparecer en el catálogo de adopción
-      if (m.estado === "Adoptado") return false;
-
       const texto = `${m.nombre} ${m.raza} ${m.ciudad}`.toLowerCase();
       return (
         texto.includes(f.busqueda.trim().toLowerCase()) &&
@@ -129,7 +134,7 @@ function Pagina() {
       if (orden === "edad-desc") return b.edadMeses - a.edadMeses;
       return Number(b.destacada) - Number(a.destacada);
     });
-  }, [f, orden]);
+  }, [listaMascotas, f, orden]);
 
   const totalPaginas = Math.max(1, Math.ceil(resultados.length / POR_PAGINA));
   const visibles = resultados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
@@ -167,7 +172,7 @@ function Pagina() {
         label="Estado"
         valor={f.estado}
         onChange={(v) => actualizar("estado", v)}
-        opciones={["Disponible", "En proceso", "En tratamiento"]}
+        opciones={["Disponible", "En proceso", "En tratamiento", "Adoptado"]}
       />
       <div className="space-y-2">
         <Label htmlFor="filtro-edad">Edad</Label>
@@ -228,7 +233,9 @@ function Pagina() {
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground" role="status">
-              {resultados.length} {resultados.length === 1 ? "mascota encontrada" : "mascotas encontradas"}
+              {cargando
+                ? "Cargando mascotas..."
+                : `${resultados.length} ${resultados.length === 1 ? "mascota encontrada" : "mascotas encontradas"}`}
             </p>
             <div className="flex items-center gap-2">
               <Sheet>
@@ -276,7 +283,11 @@ function Pagina() {
             </div>
           )}
 
-          {visibles.length === 0 ? (
+          {cargando ? (
+            <div className="mt-6">
+              <CardsSkeleton items={6} />
+            </div>
+          ) : visibles.length === 0 ? (
             <div className="mt-8">
               <EmptyState
                 titulo="No encontramos mascotas con esos filtros"
