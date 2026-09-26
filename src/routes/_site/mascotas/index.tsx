@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { EmptyState } from "@/components/shared/empty-state";
 import { PetCard } from "@/components/shared/pet-card";
 import { CardsSkeleton } from "@/components/shared/skeletons";
-import { obtenerMascotas } from "@/lib/services/mascotas";
+import { obtenerMascotasDisponibles } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/")({
@@ -85,7 +85,7 @@ function Pagina() {
 
   useEffect(() => {
     let montado = true;
-    obtenerMascotas()
+    obtenerMascotasDisponibles()
       .then((datos) => {
         if (montado) {
           setListaMascotas(datos);
@@ -112,6 +112,9 @@ function Pagina() {
 
   const resultados = useMemo(() => {
     const lista = listaMascotas.filter((m) => {
+      // Regla de negocio (HU-02): Las mascotas adoptadas no deben aparecer en el catálogo público
+      if (m.estado === "Adoptado") return false;
+
       const texto = `${m.nombre} ${m.raza} ${m.ciudad}`.toLowerCase();
       return (
         texto.includes(f.busqueda.trim().toLowerCase()) &&
@@ -172,7 +175,7 @@ function Pagina() {
         label="Estado"
         valor={f.estado}
         onChange={(v) => actualizar("estado", v)}
-        opciones={["Disponible", "En proceso", "En tratamiento", "Adoptado"]}
+        opciones={["Disponible"]}
       />
       <div className="space-y-2">
         <Label htmlFor="filtro-edad">Edad</Label>
@@ -290,12 +293,18 @@ function Pagina() {
           ) : visibles.length === 0 ? (
             <div className="mt-8">
               <EmptyState
-                titulo="No encontramos mascotas con esos filtros"
-                descripcion="Prueba ampliando la búsqueda o limpiando algunos filtros."
+                titulo={listaMascotas.length === 0 ? "No hay mascotas disponibles" : "No encontramos mascotas con esos filtros"}
+                descripcion={
+                  listaMascotas.length === 0
+                    ? "En este momento no hay mascotas disponibles para adopción. ¡Vuelve pronto!"
+                    : "Prueba ampliando la búsqueda o limpiando algunos filtros."
+                }
                 accion={
-                  <Button onClick={() => setF(inicial)} variant="outline">
-                    Limpiar filtros
-                  </Button>
+                  listaMascotas.length > 0 ? (
+                    <Button onClick={() => setF(inicial)} variant="outline">
+                      Limpiar filtros
+                    </Button>
+                  ) : undefined
                 }
               />
             </div>

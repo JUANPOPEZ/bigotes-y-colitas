@@ -67,29 +67,48 @@ export function mapearMascotaDesdeDB(row: MascotaRow): Mascota {
 
 /**
  * Obtiene todas las mascotas desde Supabase con respaldo garantizado.
+ * Si se proporciona filtro.estado, filtra a nivel de base de datos en Supabase.
+ * Para el panel de administración se invoca sin argumentos para retornar todas las mascotas.
  */
-export async function obtenerMascotas(): Promise<Mascota[]> {
+export async function obtenerMascotas(filtro?: { estado?: string }): Promise<Mascota[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("mascotas")
       .select("*")
       .order("creado_en", { ascending: false });
 
-    if (error) {
-      console.warn("[Mascotas Service] Consulta Supabase falló, usando datos de respaldo:", error.message);
-      return mockMascotas;
+    if (filtro?.estado) {
+      query = query.eq("estado", filtro.estado);
     }
 
-    if (!data || data.length === 0) {
-      console.warn("[Mascotas Service] No se recibieron datos de Supabase, usando respaldo.");
-      return mockMascotas;
+    const { data, error } = await query;
+
+    if (error) {
+      console.warn("[Mascotas Service] Consulta Supabase falló, usando datos de respaldo:", error.message);
+      return filtro?.estado
+        ? mockMascotas.filter((m) => m.estado === filtro.estado)
+        : mockMascotas;
+    }
+
+    if (!data) {
+      return [];
     }
 
     return data.map(mapearMascotaDesdeDB);
   } catch (err) {
     console.error("[Mascotas Service] Excepción consultando Supabase, usando datos de respaldo:", err);
-    return mockMascotas;
+    return filtro?.estado
+      ? mockMascotas.filter((m) => m.estado === filtro.estado)
+      : mockMascotas;
   }
+}
+
+/**
+ * Obtiene exclusivamente las mascotas disponibles desde Supabase para el catálogo público.
+ * Filtra directamente a nivel de consulta por estado = 'Disponible' para excluir mascotas adoptadas.
+ */
+export async function obtenerMascotasDisponibles(): Promise<Mascota[]> {
+  return obtenerMascotas({ estado: "Disponible" });
 }
 
 /**
