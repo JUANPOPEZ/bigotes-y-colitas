@@ -295,6 +295,13 @@ export async function registrarSolicitudAdopcion(
         );
       }
 
+      // Si PostgreSQL bloquea por RLS (falta de política INSERT en Supabase)
+      if (error.code === "42501" || error.message.includes("row-level security")) {
+        throw new Error(
+          "Supabase bloqueó el registro: la tabla 'solicitudes_adopcion' tiene RLS activado pero aún no tiene la política de inserción. Ejecuta el script de migración en el SQL Editor de Supabase."
+        );
+      }
+
       throw new Error(error.message || "Error al guardar la solicitud en la base de datos.");
     }
 

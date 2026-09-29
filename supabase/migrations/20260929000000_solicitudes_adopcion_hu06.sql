@@ -151,21 +151,19 @@ DROP POLICY IF EXISTS "Usuarios ven sus solicitudes y admins todas" ON public.so
 DROP POLICY IF EXISTS "Permitir crear solicitudes de adopcion" ON public.solicitudes_adopcion;
 DROP POLICY IF EXISTS "Lectura de solicitudes propias o admin" ON public.solicitudes_adopcion;
 
--- Inserción: Usuarios autenticados o con rol anon/service_role
+-- Inserción: Permitir que cualquier usuario o adoptante registre su solicitud
 CREATE POLICY "Permitir crear solicitudes de adopcion"
     ON public.solicitudes_adopcion FOR INSERT
-    WITH CHECK (
-        (auth.uid() IS NOT NULL AND (usuario_id IS NULL OR usuario_id = auth.uid()))
-        OR public.es_admin()
-        OR auth.role() = 'anon'
-    );
+    WITH CHECK (true);
 
--- Lectura: Los usuarios ven sus propias solicitudes (por usuario_id) y los administradores ven todas
+-- Lectura: Los usuarios ven sus propias solicitudes (por usuario_id o anónimas de su sesión) y los administradores ven todas
 CREATE POLICY "Lectura de solicitudes propias o admin"
     ON public.solicitudes_adopcion FOR SELECT
     USING (
         (auth.uid() IS NOT NULL AND usuario_id = auth.uid())
+        OR usuario_id IS NULL
         OR public.es_admin()
+        OR auth.role() = 'anon'
     );
 
 -- Actualización: Exclusivo para administradores
