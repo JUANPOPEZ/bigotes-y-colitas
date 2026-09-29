@@ -29,7 +29,15 @@ export function solicitudesActivasDe(correo: string, lista: Solicitud[] = solici
   return lista.filter((s) => s.correo === correo && esEnTramite(s.estado));
 }
 
+export function calcularDisponibilidadSolicitudes(activas: number) {
+  return {
+    activas,
+    restantes: Math.max(0, MAX_SOLICITUDES_ACTIVAS - activas),
+    permitido: activas < MAX_SOLICITUDES_ACTIVAS,
+  };
+}
+
 export function puedeCrearSolicitud(correo: string, lista: Solicitud[] = solicitudes) {
   const activas = solicitudesActivasDe(correo, lista).length;
-  return { activas, restantes: Math.max(0, MAX_SOLICITUDES_ACTIVAS - activas), permitido: activas < MAX_SOLICITUDES_ACTIVAS };
+  return calcularDisponibilidadSolicitudes(activas);
 }

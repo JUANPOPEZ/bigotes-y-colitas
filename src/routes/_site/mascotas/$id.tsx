@@ -1,7 +1,8 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowLeft,
   Baby,
   CalendarDays,
@@ -24,7 +25,9 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { PetCard } from "@/components/shared/pet-card";
+import { useAuth } from "@/lib/auth";
 import { obtenerMascotaPorId, obtenerMascotas } from "@/lib/services/mascotas";
+import { verificarLimiteSolicitudesUsuario } from "@/lib/services/solicitudes";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/$id")({
@@ -61,8 +64,35 @@ export const Route = createFileRoute("/_site/mascotas/$id")({
 
 function Pagina() {
   const { mascota, similares } = Route.useLoaderData() as { mascota: Mascota; similares: Mascota[] };
+  const { user } = useAuth();
   const [imagen, setImagen] = useState(0);
   const [favorito, setFavorito] = useState(false);
+  const [limiteInfo, setLimiteInfo] = useState<{
+    activas: number;
+    restantes: number;
+    permitido: boolean;
+  }>({
+    activas: 0,
+    restantes: 3,
+    permitido: true,
+  });
+
+  useEffect(() => {
+    let montado = true;
+    if (user?.id || user?.email) {
+      verificarLimiteSolicitudesUsuario(user.id, user.email)
+        .then((res) => {
+          if (montado) setLimiteInfo(res);
+        })
+        .catch((err) => {
+          console.warn("[Mascotas Detail] Error verificando límite:", err);
+        });
+    }
+    return () => {
+      montado = false;
+    };
+  }, [user?.id, user?.email]);
+
   const Icono = mascota.especie === "Perro" ? Dog : Cat;
 
   const datos = [
@@ -172,11 +202,23 @@ function Pagina() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg" disabled={mascota.estado !== "Disponible"}>
-              <Link to="/adopta" search={{ mascota: mascota.id }}>
-                Solicitar adopción
-              </Link>
-            </Button>
+            {mascota.estado === "Disponible" ? (
+              limiteInfo.permitido ? (
+                <Button asChild size="lg">
+                  <Link to="/adopta" search={{ mascota: mascota.id }}>
+                    Solicitar adopción
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="lg" disabled variant="outline" className="opacity-70 cursor-not-allowed">
+                  Límite de solicitudes alcanzado
+                </Button>
+              )
+            ) : (
+              <Button size="lg" disabled variant="secondary" className="opacity-70 cursor-not-allowed">
+                No disponible para adopción
+              </Button>
+            )}
             <Button
               size="lg"
               variant="outline"
@@ -201,10 +243,24 @@ function Pagina() {
             </Button>
           </div>
 
+          {!limiteInfo.permitido && mascota.estado === "Disponible" && (
+            <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="size-4 shrink-0" />
+                Límite de solicitudes activas alcanzado (3/3)
+              </div>
+              <p className="mt-1 text-xs text-destructive/90">
+                Tienes 3 solicitudes activas en proceso. Debes esperar a que alguna sea resuelta antes de solicitar la adopción de {mascota.nombre}.
+              </p>
+              <Button asChild size="sm" variant="outline" className="mt-2.5 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/15">
+                <Link to="/cuenta/solicitudes">Ver mis solicitudes activas</Link>
+              </Button>
+            </div>
+          )}
+
           {mascota.estado !== "Disponible" && (
             <p className="mt-4 rounded-xl bg-accent/60 px-4 py-3 text-sm text-accent-foreground">
-              Esta mascota no está disponible por ahora. Puedes guardarla en favoritos para recibir
-              novedades.
+              Esta mascota se encuentra en estado "{mascota.estado}" y no está disponible para adopción por ahora. Puedes guardarla en favoritos para recibir novedades.
             </p>
           )}
         </div>

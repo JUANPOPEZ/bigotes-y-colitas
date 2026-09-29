@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -168,6 +168,7 @@ export interface Database {
       solicitudes_adopcion: {
         Row: {
           id: string;
+          radicado: string;
           mascota_id: string;
           usuario_id: string | null;
           solicitante: string;
@@ -176,12 +177,14 @@ export interface Database {
           ciudad: string;
           estado: EstadoSolicitud;
           datos_hogar: Json | null;
+          datos_formulario: Json | null;
           cronologia: Json;
           creado_en: string;
           actualizado_en: string;
         };
         Insert: {
           id?: string;
+          radicado?: string;
           mascota_id: string;
           usuario_id?: string | null;
           solicitante: string;
@@ -190,12 +193,14 @@ export interface Database {
           ciudad: string;
           estado?: EstadoSolicitud;
           datos_hogar?: Json | null;
+          datos_formulario?: Json | null;
           cronologia?: Json;
           creado_en?: string;
           actualizado_en?: string;
         };
         Update: {
           id?: string;
+          radicado?: string;
           mascota_id?: string;
           usuario_id?: string | null;
           solicitante?: string;
@@ -204,6 +209,7 @@ export interface Database {
           ciudad?: string;
           estado?: EstadoSolicitud;
           datos_hogar?: Json | null;
+          datos_formulario?: Json | null;
           cronologia?: Json;
           creado_en?: string;
           actualizado_en?: string;

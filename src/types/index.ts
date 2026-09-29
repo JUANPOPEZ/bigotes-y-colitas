@@ -45,6 +45,7 @@ export type EstadoSolicitud =
 
 export interface Solicitud {
   id: string;
+  radicado?: string;
   mascota: string;
   mascotaId: string;
   solicitante: string;
