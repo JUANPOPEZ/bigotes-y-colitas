@@ -47,7 +47,6 @@ type Filtros = {
   tamano: string;
   sexo: string;
   ciudad: string;
-  estado: string;
   edad: string;
   esterilizado: boolean;
   vacunado: boolean;
@@ -61,7 +60,6 @@ const inicial: Filtros = {
   tamano: TODOS,
   sexo: TODOS,
   ciudad: TODOS,
-  estado: TODOS,
   edad: TODOS,
   esterilizado: false,
   vacunado: false,
@@ -122,7 +120,6 @@ function Pagina() {
         (f.tamano === TODOS || m.tamano === f.tamano) &&
         (f.sexo === TODOS || m.sexo === f.sexo) &&
         (f.ciudad === TODOS || m.ciudad === f.ciudad) &&
-        (f.estado === TODOS || m.estado === f.estado) &&
         coincideEdad(m, f.edad) &&
         (!f.esterilizado || m.esterilizado) &&
         (!f.vacunado || m.vacunado) &&
@@ -147,7 +144,6 @@ function Pagina() {
     f.tamano !== TODOS && { k: "tamano" as const, label: f.tamano },
     f.sexo !== TODOS && { k: "sexo" as const, label: f.sexo },
     f.ciudad !== TODOS && { k: "ciudad" as const, label: f.ciudad },
-    f.estado !== TODOS && { k: "estado" as const, label: f.estado },
     f.edad !== TODOS && { k: "edad" as const, label: f.edad },
   ].filter(Boolean) as { k: keyof Filtros; label: string }[];
 
@@ -171,12 +167,6 @@ function Pagina() {
       <SelectFiltro label="Tamaño" valor={f.tamano} onChange={(v) => actualizar("tamano", v)} opciones={["Pequeño", "Mediano", "Grande"]} />
       <SelectFiltro label="Sexo" valor={f.sexo} onChange={(v) => actualizar("sexo", v)} opciones={["Macho", "Hembra"]} />
       <SelectFiltro label="Ciudad" valor={f.ciudad} onChange={(v) => actualizar("ciudad", v)} opciones={ciudades} />
-      <SelectFiltro
-        label="Estado"
-        valor={f.estado}
-        onChange={(v) => actualizar("estado", v)}
-        opciones={["Disponible"]}
-      />
       <div className="space-y-2">
         <Label htmlFor="filtro-edad">Edad</Label>
         <Select value={f.edad} onValueChange={(v) => actualizar("edad", v)}>
