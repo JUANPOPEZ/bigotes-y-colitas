@@ -111,6 +111,55 @@ function Pagina() {
   // Control de errores de validación
   const [errores, setErrores] = useState<Record<string, string>>({});
 
+  // Restricción de campos exclusivamente numéricos enteros (solo dígitos 0-9)
+  const bloquearTeclasNoNumericas = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (
+      [
+        "Backspace",
+        "Tab",
+        "Enter",
+        "Delete",
+        "Escape",
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        "Home",
+        "End",
+      ].includes(e.key)
+    ) {
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const manejarPegadoSoloDigitos = (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    setter: (valor: string) => void,
+    campoError?: string
+  ) => {
+    e.preventDefault();
+    const textoPegado = e.clipboardData.getData("text");
+    const soloDigitos = textoPegado.replace(/\D/g, "");
+    if (!soloDigitos) return;
+
+    const input = e.currentTarget;
+    const inicio = input.selectionStart ?? 0;
+    const fin = input.selectionEnd ?? 0;
+    const valorActual = input.value;
+    const nuevoValor = valorActual.slice(0, inicio) + soloDigitos + valorActual.slice(fin);
+
+    setter(nuevoValor);
+    if (campoError) {
+      setErrores((prev) => ({ ...prev, [campoError]: "" }));
+    }
+  };
+
   // Estados de envío y resultado
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -161,12 +210,14 @@ function Pagina() {
     if (perfil) {
       if (!nombre && perfil.nombre) setNombre(perfil.nombre);
       if (!correo && perfil.correo) setCorreo(perfil.correo);
-      if (!telefono && perfil.telefono) setTelefono(perfil.telefono);
+      if (!telefono && perfil.telefono) setTelefono(perfil.telefono.replace(/\D/g, ""));
       if (ciudad === "Bogotá" && perfil.ciudad) setCiudad(perfil.ciudad);
     } else if (user) {
       if (!nombre && user.user_metadata?.nombre) setNombre(user.user_metadata.nombre);
       if (!correo && user.email) setCorreo(user.email);
-      if (!telefono && user.user_metadata?.telefono) setTelefono(user.user_metadata.telefono);
+      if (!telefono && user.user_metadata?.telefono) {
+        setTelefono(String(user.user_metadata.telefono).replace(/\D/g, ""));
+      }
       if (ciudad === "Bogotá" && user.user_metadata?.ciudad) setCiudad(user.user_metadata.ciudad);
     }
   }, [perfil, user]);
@@ -228,7 +279,7 @@ function Pagina() {
       nuevosErrores.nombre = "Ingresa tu nombre completo (mínimo 3 caracteres).";
     }
 
-    if (!documento.trim() || documento.trim().length < 5) {
+    if (!documento.trim() || documento.trim().length < 5 || !/^\d+$/.test(documento.trim())) {
       nuevosErrores.documento = "Ingresa un número de documento de identidad válido.";
     }
 
@@ -236,7 +287,7 @@ function Pagina() {
       nuevosErrores.correo = "Ingresa un correo electrónico válido.";
     }
 
-    if (!telefono.trim() || telefono.trim().length < 7) {
+    if (!telefono.trim() || telefono.trim().length < 7 || !/^\d+$/.test(telefono.trim())) {
       nuevosErrores.telefono = "Ingresa un número de teléfono de contacto (al menos 7 dígitos).";
     }
 
@@ -673,10 +724,16 @@ function Pagina() {
                   <Label htmlFor="ad-documento">Documento de identidad (C.C. / C.E.) *</Label>
                   <Input
                     id="ad-documento"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Ej. 1020304050"
                     value={documento}
+                    onKeyDown={bloquearTeclasNoNumericas}
+                    onPaste={(e) => manejarPegadoSoloDigitos(e, setDocumento, "documento")}
                     onChange={(e) => {
-                      setDocumento(e.target.value);
+                      const soloDigitos = e.target.value.replace(/\D/g, "");
+                      setDocumento(soloDigitos);
                       if (errores.documento) setErrores((prev) => ({ ...prev, documento: "" }));
                     }}
                     className={errores.documento ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -705,10 +762,15 @@ function Pagina() {
                   <Input
                     id="ad-tel"
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Ej. 3001234567"
                     value={telefono}
+                    onKeyDown={bloquearTeclasNoNumericas}
+                    onPaste={(e) => manejarPegadoSoloDigitos(e, setTelefono, "telefono")}
                     onChange={(e) => {
-                      setTelefono(e.target.value);
+                      const soloDigitos = e.target.value.replace(/\D/g, "");
+                      setTelefono(soloDigitos);
                       if (errores.telefono) setErrores((prev) => ({ ...prev, telefono: "" }));
                     }}
                     className={errores.telefono ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -811,9 +873,14 @@ function Pagina() {
                     id="ad-personas"
                     type="number"
                     min={1}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={personas}
+                    onKeyDown={bloquearTeclasNoNumericas}
+                    onPaste={(e) => manejarPegadoSoloDigitos(e, setPersonas, "personas")}
                     onChange={(e) => {
-                      setPersonas(e.target.value);
+                      const soloDigitos = e.target.value.replace(/\D/g, "");
+                      setPersonas(soloDigitos);
                       if (errores.personas) setErrores((prev) => ({ ...prev, personas: "" }));
                     }}
                     className={errores.personas ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -827,8 +894,15 @@ function Pagina() {
                     id="ad-ninos"
                     type="number"
                     min={0}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={ninos}
-                    onChange={(e) => setNinos(e.target.value)}
+                    onKeyDown={bloquearTeclasNoNumericas}
+                    onPaste={(e) => manejarPegadoSoloDigitos(e, setNinos)}
+                    onChange={(e) => {
+                      const soloDigitos = e.target.value.replace(/\D/g, "");
+                      setNinos(soloDigitos);
+                    }}
                   />
                 </div>
 
