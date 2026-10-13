@@ -2,6 +2,7 @@ import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Baby,
@@ -27,7 +28,7 @@ import { EstadoBadge } from "@/components/shared/estado-badge";
 import { PetCard } from "@/components/shared/pet-card";
 import { useAuth } from "@/lib/auth";
 import { obtenerMascotaPorId, obtenerMascotas } from "@/lib/services/mascotas";
-import { verificarLimiteSolicitudesUsuario } from "@/lib/services/solicitudes";
+import { verificarLimiteSolicitudesUsuario, verificarSolicitudDuplicada } from "@/lib/services/solicitudes";
 import type { Mascota } from "@/types";
 
 export const Route = createFileRoute("/_site/mascotas/$id")({
@@ -76,22 +77,28 @@ function Pagina() {
     restantes: 3,
     permitido: true,
   });
+  const [yaSolicitada, setYaSolicitada] = useState(false);
 
   useEffect(() => {
     let montado = true;
     if (user?.id || user?.email) {
-      verificarLimiteSolicitudesUsuario(user.id, user.email)
-        .then((res) => {
-          if (montado) setLimiteInfo(res);
+      Promise.all([
+        verificarLimiteSolicitudesUsuario(user.id, user.email),
+        verificarSolicitudDuplicada(mascota.id, user.id, user.email)
+      ]).then(([lim, dup]) => {
+          if (montado) {
+            setLimiteInfo(lim);
+            setYaSolicitada(dup);
+          }
         })
         .catch((err) => {
-          console.warn("[Mascotas Detail] Error verificando límite:", err);
+          console.warn("[Mascotas Detail] Error verificando solicitudes:", err);
         });
     }
     return () => {
       montado = false;
     };
-  }, [user?.id, user?.email]);
+  }, [user?.id, user?.email, mascota.id]);
 
   const Icono = mascota.especie === "Perro" ? Dog : Cat;
 
@@ -203,7 +210,11 @@ function Pagina() {
 
           <div className="mt-8 flex flex-wrap gap-3">
             {mascota.estado === "Disponible" ? (
-              limiteInfo.permitido ? (
+              yaSolicitada ? (
+                <Button size="lg" disabled variant="secondary" className="opacity-70 cursor-not-allowed">
+                  Ya tienes una solicitud en proceso
+                </Button>
+              ) : limiteInfo.permitido ? (
                 <Button asChild size="lg">
                   <Link to="/adopta" search={{ mascota: mascota.id }}>
                     Solicitar adopción
@@ -243,7 +254,7 @@ function Pagina() {
             </Button>
           </div>
 
-          {!limiteInfo.permitido && mascota.estado === "Disponible" && (
+          {!limiteInfo.permitido && !yaSolicitada && mascota.estado === "Disponible" && (
             <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-sm text-destructive">
               <div className="flex items-center gap-2 font-medium">
                 <AlertTriangle className="size-4 shrink-0" />
@@ -254,6 +265,21 @@ function Pagina() {
               </p>
               <Button asChild size="sm" variant="outline" className="mt-2.5 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/15">
                 <Link to="/cuenta/solicitudes">Ver mis solicitudes activas</Link>
+              </Button>
+            </div>
+          )}
+
+          {yaSolicitada && mascota.estado === "Disponible" && (
+            <div className="mt-4 rounded-xl border border-mustard bg-mustard/10 p-3.5 text-sm text-mustard-dark">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertCircle className="size-4 shrink-0" />
+                Solicitud en curso
+              </div>
+              <p className="mt-1 text-xs opacity-90">
+                Ya tienes una solicitud activa para adoptar a {mascota.nombre}.
+              </p>
+              <Button asChild size="sm" variant="outline" className="mt-2.5 h-8 text-xs border-mustard/30 text-mustard-dark hover:bg-mustard/20">
+                <Link to="/cuenta/solicitudes">Ver estado en tu cuenta</Link>
               </Button>
             </div>
           )}

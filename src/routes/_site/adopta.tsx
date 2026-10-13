@@ -33,6 +33,7 @@ import { obtenerMascotas } from "@/lib/services/mascotas";
 import {
   registrarSolicitudAdopcion,
   verificarLimiteSolicitudesUsuario,
+  verificarSolicitudDuplicada,
 } from "@/lib/services/solicitudes";
 import type { Mascota } from "@/types";
 
@@ -165,6 +166,9 @@ function Pagina() {
   const [enviado, setEnviado] = useState(false);
   const [radicadoGenerado, setRadicadoGenerado] = useState("");
 
+  const [yaSolicitada, setYaSolicitada] = useState(false);
+  const [verificandoDuplicado, setVerificandoDuplicado] = useState(false);
+
   // Cargar catálogo de mascotas
   useEffect(() => {
     let montado = true;
@@ -250,6 +254,35 @@ function Pagina() {
     };
   }, [user?.id, user?.email, correo]);
 
+  // Verificar si ya tiene solicitud para la mascota seleccionada
+  useEffect(() => {
+    let montado = true;
+    const usuarioId = user?.id;
+    const correoUsuario = user?.email || correo;
+
+    if (!mascotaId || (!usuarioId && !correoUsuario)) {
+      setYaSolicitada(false);
+      return;
+    }
+
+    setVerificandoDuplicado(true);
+    verificarSolicitudDuplicada(mascotaId, usuarioId, correoUsuario)
+      .then((resultado) => {
+        if (montado) {
+          setYaSolicitada(resultado);
+          setVerificandoDuplicado(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Adopta] Error verificando duplicidad:", err);
+        if (montado) setVerificandoDuplicado(false);
+      });
+
+    return () => {
+      montado = false;
+    };
+  }, [mascotaId, user?.id, user?.email, correo]);
+
   // Filtrar exclusivamente mascotas disponibles
   const disponibles = listaMascotas.filter((m) => m.estado === "Disponible");
   const elegida = listaMascotas.find((m) => m.id === mascotaId);
@@ -262,11 +295,13 @@ function Pagina() {
       nuevosErrores.mascota = "Debes seleccionar una mascota para la solicitud.";
     } else if (seleccionInvalida) {
       nuevosErrores.mascota = `"${elegida.nombre}" no está disponible para adopción (estado: ${elegida.estado}). Elige una mascota disponible.`;
+    } else if (yaSolicitada) {
+      nuevosErrores.mascota = `Ya tienes una solicitud en proceso para "${elegida.nombre}". Por favor, espera a que se resuelva antes de intentar de nuevo.`;
     }
 
     setErrores(nuevosErrores);
     if (Object.keys(nuevosErrores).length > 0) {
-      toast.error(nuevosErrores.mascota || "Selecciona una mascota disponible.");
+      toast.error(nuevosErrores.mascota || "Error en la selección de mascota.");
       return false;
     }
     return true;
@@ -566,6 +601,20 @@ function Pagina() {
             Cupo disponible
           </Badge>
         </div>
+
+        {yaSolicitada && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mustard bg-mustard/10 p-3.5 text-sm text-mustard-dark">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>
+                Ya tienes una solicitud activa para la mascota seleccionada. Espera a que se resuelva antes de postular de nuevo.
+              </span>
+            </div>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs border-mustard/30 text-mustard-dark hover:bg-mustard/20">
+              <Link to="/cuenta/solicitudes">Ver estado</Link>
+            </Button>
+          </div>
+        )}
 
         {/* Aviso de autenticación si el visitante no ha iniciado sesión */}
         {!cargandoAuth && !autenticado && (

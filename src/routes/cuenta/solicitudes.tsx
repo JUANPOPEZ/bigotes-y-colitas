@@ -20,9 +20,10 @@ import { MAX_SOLICITUDES_ACTIVAS, esEnTramite } from "@/lib/reglas-solicitudes";
 import {
   obtenerSolicitudesUsuario,
   verificarLimiteSolicitudesUsuario,
+  eliminarSolicitudPendiente,
 } from "@/lib/services/solicitudes";
-import { solicitudes as mockSolicitudes } from "@/mock";
 import type { Solicitud } from "@/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/cuenta/solicitudes")({
   head: () => ({
@@ -77,19 +78,14 @@ function Pagina() {
     ])
       .then(([datos, lim]) => {
         if (!montado) return;
-        if (datos && datos.length > 0) {
-          setSolicitudesLista(datos);
-        } else {
-          // Si no hay datos en Supabase para el usuario (o en demo), mostrar mock
-          setSolicitudesLista(mockSolicitudes);
-        }
+        setSolicitudesLista(datos || []);
         setLimiteInfo(lim);
         setCargando(false);
       })
       .catch((err) => {
         console.warn("[Cuenta Solicitudes] Error cargando datos:", err);
         if (montado) {
-          setSolicitudesLista(mockSolicitudes);
+          setSolicitudesLista([]);
           setCargando(false);
         }
       });
@@ -194,6 +190,27 @@ function Pagina() {
                       <Link to="/mascotas/$id" params={{ id: s.mascotaId }}>
                         Ver mascota
                       </Link>
+                    </Button>
+                  )}
+                  {s.estado === "Pendiente" && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="ml-2"
+                      onClick={async () => {
+                        if (confirm("¿Estás seguro de que deseas cancelar y eliminar esta solicitud?")) {
+                          try {
+                            await eliminarSolicitudPendiente(s.id);
+                            toast.success("Solicitud cancelada correctamente.");
+                            // Forzar recarga simple
+                            window.location.reload();
+                          } catch (err: any) {
+                            toast.error(err.message || "Error al cancelar la solicitud");
+                          }
+                        }
+                      }}
+                    >
+                      Cancelar
                     </Button>
                   )}
                 </div>

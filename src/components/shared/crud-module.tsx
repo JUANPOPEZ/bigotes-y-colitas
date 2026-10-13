@@ -57,7 +57,7 @@ interface CrudModuleProps<T extends { id: string }> {
   buscarEn: (fila: T) => string;
   filtros?: FiltroConfig[];
   valorFiltro?: (fila: T, key: string) => string;
-  campos: CampoFormulario[];
+  campos: CampoFormulario[] | ((fila: T | null) => CampoFormulario[]);
   etiquetaNuevo?: string;
   /** Si es false, oculta el alta manual (solo consulta y actualización). */
   permitirCrear?: boolean;
@@ -97,13 +97,17 @@ export function CrudModule<T extends { id: string }>({
   const [seleccion, setSeleccion] = useState<T | null>(null);
   const [valoresForm, setValoresForm] = useState<Record<string, string>>({});
 
+  const camposActuales = typeof campos === "function" ? campos(seleccion) : campos;
+
   const abrirFormulario = (nuevoModo: "crear" | "editar", item?: T) => {
     setModo(nuevoModo);
     setSeleccion(item ?? null);
+    const camposParaModo = typeof campos === "function" ? campos(item ?? null) : campos;
+    
     if (nuevoModo === "editar" && item) {
       const iniciales: Record<string, string> = {};
       const obj = item as Record<string, unknown>;
-      campos.forEach((c) => {
+      camposParaModo.forEach((c) => {
         let val = obj[c.name];
         if (c.tipo === "imagen" && (!val || val === "") && Array.isArray(obj.galeria) && obj.galeria.length > 0) {
           val = obj.galeria[0];
@@ -127,7 +131,7 @@ export function CrudModule<T extends { id: string }>({
     e.preventDefault();
 
     // Validar campos obligatorios
-    const faltantes = campos
+    const faltantes = camposActuales
       .filter((c) => c.requerido && (!valoresForm[c.name] || valoresForm[c.name].trim() === ""))
       .map((c) => c.label);
 
@@ -211,7 +215,7 @@ export function CrudModule<T extends { id: string }>({
             className="grid gap-4 sm:grid-cols-2"
             onSubmit={manejarEnvio}
           >
-            {campos.map((campo) => (
+            {camposActuales.map((campo) => (
               <div
                 key={campo.name}
                 className={campo.ancho === "medio" ? "sm:col-span-1" : "sm:col-span-2"}
@@ -326,6 +330,7 @@ export function CrudModule<T extends { id: string }>({
                   } else {
                     toast.success("Registro eliminado correctamente");
                   }
+                  setBorrarAbierto(false);
                 } catch (error: unknown) {
                   const msg = error instanceof Error ? error.message : "Error al eliminar el registro";
                   toast.error(msg);

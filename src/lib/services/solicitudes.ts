@@ -115,6 +115,42 @@ export async function verificarLimiteSolicitudesUsuario(
 }
 
 /**
+ * Verifica si el usuario ya tiene una solicitud activa para la misma mascota.
+ */
+export async function verificarSolicitudDuplicada(
+  mascotaId: string,
+  usuarioId?: string | null,
+  correo?: string | null
+): Promise<boolean> {
+  const usuarioIdValido = esUuidValido(usuarioId) ? usuarioId : null;
+  const correoLimpio = correo?.trim().toLowerCase();
+
+  if (!usuarioIdValido && !correoLimpio) return false;
+
+  let query = supabase
+    .from("solicitudes_adopcion")
+    .select("id")
+    .eq("mascota_id", mascotaId)
+    .in("estado", ESTADOS_EN_TRAMITE);
+    
+  if (usuarioIdValido && correoLimpio) {
+    query = query.or(`usuario_id.eq.${usuarioIdValido},correo.eq.${correoLimpio}`);
+  } else if (usuarioIdValido) {
+    query = query.eq("usuario_id", usuarioIdValido);
+  } else if (correoLimpio) {
+    query = query.eq("correo", correoLimpio);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn("[Solicitudes Service] Error al verificar duplicidad:", error.message);
+    return false; // Asumimos false si falla la red, la inserción lo atrapará después
+  }
+
+  return (data && data.length > 0) || false;
+}
+
+/**
  * Registra formalmente una solicitud de adopción en Supabase cumpliendo todos los criterios de HU-06:
  * - Valida campos obligatorios.
  * - Valida que la mascota esté 'Disponible'.
@@ -189,7 +225,7 @@ export async function registrarSolicitudAdopcion(
     console.warn("[Solicitudes Service] No se pudo verificar disponibilidad en Supabase:", err);
   }
 
-  // 3. Verificar límite de 3 solicitudes activas
+  // 3. Verificar límite de 3 solicitudes activas y que no haya duplicidad para la misma mascota
   const activas = await contarSolicitudesActivas(datos.usuarioId, datos.correo);
   if (activas >= MAX_SOLICITUDES_ACTIVAS) {
     throw new Error(
@@ -197,10 +233,29 @@ export async function registrarSolicitudAdopcion(
     );
   }
 
+  const usuarioIdValido = esUuidValido(datos.usuarioId) ? datos.usuarioId : null;
+  const correoLimpio = datos.correo.trim().toLowerCase();
+
+  let queryDuplicada = supabase
+    .from("solicitudes_adopcion")
+    .select("id")
+    .eq("mascota_id", datos.mascotaId)
+    .in("estado", ESTADOS_EN_TRAMITE);
+    
+  if (usuarioIdValido) {
+    queryDuplicada = queryDuplicada.eq("usuario_id", usuarioIdValido);
+  } else {
+    queryDuplicada = queryDuplicada.eq("correo", correoLimpio);
+  }
+
+  const { data: duplicadas, error: errorDup } = await queryDuplicada;
+  if (!errorDup && duplicadas && duplicadas.length > 0) {
+    throw new Error("Ya tienes una solicitud en proceso para esta misma mascota. Por favor, espera a que se resuelva.");
+  }
+
   // 4. Generación de radicado único
   const radicado = generarRadicadoUnico();
   const fechaActual = new Date().toISOString();
-  const usuarioIdValido = esUuidValido(datos.usuarioId) ? datos.usuarioId : null;
 
   const datosHogar = {
     documento: datos.documento.trim(),
@@ -374,18 +429,224 @@ export async function obtenerSolicitudesUsuario(
         solicitante: row.solicitante,
         correo: row.correo,
         ciudad: row.ciudad,
-        fecha: row.creado_en ? new Date(row.creado_en).toLocaleDateString("es-CO") : "",
+        fecha: row.creado_en ? new Date(row.creado_en).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
         estado: row.estado as import("@/types").EstadoSolicitud,
         cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map((c) => ({
-          fecha: c.fecha ? new Date(c.fecha).toLocaleDateString("es-CO") : "",
+          fecha: c.fecha ? new Date(c.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
           titulo: c.titulo || "",
           detalle: c.detalle || "",
         })),
+        datosFormulario: row.datos_formulario,
+        telefono: row.telefono,
       };
     });
   } catch (err) {
     console.error("[Solicitudes Service] Error cargando solicitudes:", err);
     return [];
+  }
+}
+
+/**
+ * Obtiene TODAS las solicitudes para el panel de administración.
+ */
+export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").Solicitud[]> {
+  try {
+    const { data, error } = await supabase
+      .from("solicitudes_adopcion")
+      .select("*, mascotas(id, nombre, especie, ciudad)")
+      .order("creado_en", { ascending: false });
+
+    if (error) {
+      console.warn("[Solicitudes Service] Error al consultar todas las solicitudes:", error.message);
+      return [];
+    }
+
+    if (!data) return [];
+
+    return data.map((row) => {
+      const mascotaInfo = (row as unknown as { mascotas?: { id: string; nombre: string; especie: string; ciudad: string } }).mascotas;
+      const datosHogar = (row.datos_hogar || {}) as Record<string, unknown>;
+      const nombreMascota = mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
+      const crono = Array.isArray(row.cronologia) ? row.cronologia : [];
+
+      return {
+        id: row.id,
+        radicado: (row as unknown as { radicado?: string }).radicado || (datosHogar.radicado as string) || undefined,
+        mascota: nombreMascota,
+        mascotaId: row.mascota_id,
+        solicitante: row.solicitante,
+        correo: row.correo,
+        ciudad: row.ciudad,
+        fecha: row.creado_en ? new Date(row.creado_en).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
+        estado: row.estado as import("@/types").EstadoSolicitud,
+        cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map((c) => ({
+          fecha: c.fecha ? new Date(c.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
+          titulo: c.titulo || "",
+          detalle: c.detalle || "",
+        })),
+        datosFormulario: row.datos_formulario,
+        telefono: row.telefono,
+      };
+    });
+  } catch (err) {
+    console.error("[Solicitudes Service] Error cargando todas las solicitudes:", err);
+    return [];
+  }
+}
+
+/**
+ * Permite a un adoptante cancelar (eliminar) su solicitud si aún está en estado "Pendiente".
+ */
+export async function eliminarSolicitudPendiente(id: string): Promise<void> {
+  try {
+    // Verificar estado actual
+    const { data: actual, error: errorGet } = await supabase
+      .from("solicitudes_adopcion")
+      .select("estado")
+      .eq("id", id)
+      .single();
+
+    if (errorGet) throw errorGet;
+    if (actual.estado !== "Pendiente") {
+      throw new Error("Solo puedes cancelar solicitudes que están en estado Pendiente.");
+    }
+
+    const { error: errorDelete } = await supabase
+      .from("solicitudes_adopcion")
+      .delete()
+      .eq("id", id)
+      .eq("estado", "Pendiente");
+
+    if (errorDelete) throw errorDelete;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Error al cancelar la solicitud.";
+    console.error("[Solicitudes Service] Error al eliminar:", err);
+    throw new Error(msg);
+  }
+}
+
+/**
+ * Permite a un administrador eliminar permanentemente una solicitud del sistema.
+ */
+export async function eliminarSolicitudAdmin(id: string): Promise<void> {
+  try {
+    const { error: errorDelete } = await supabase
+      .from("solicitudes_adopcion")
+      .delete()
+      .eq("id", id);
+
+    if (errorDelete) throw errorDelete;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Error al eliminar la solicitud.";
+    console.error("[Solicitudes Service] Error al eliminar (Admin):", err);
+    throw new Error(msg);
+  }
+}
+
+/**
+ * Actualiza el estado de una solicitud y agrega notas a su cronología.
+ */
+export async function actualizarEstadoSolicitud(
+  id: string,
+  nuevoEstado: EstadoSolicitud,
+  observaciones?: string,
+  tituloObservacion?: string
+) {
+  try {
+    // Primero, obtenemos la cronología actual y el id de la mascota
+    const { data: actual, error: errorGet } = await supabase
+      .from("solicitudes_adopcion")
+      .select("cronologia, estado, mascota_id")
+      .eq("id", id)
+      .single();
+
+    if (errorGet) throw errorGet;
+
+    const cronologiaAnterior = Array.isArray(actual.cronologia) ? actual.cronologia : [];
+    
+    // Si no nos pasan un título explícito desde el frontend, lo inferimos basado en el nuevo estado
+    let tituloNuevo = tituloObservacion || `Cambio de estado a ${nuevoEstado}`;
+    let detalleNuevo = observaciones?.trim() || `La solicitud ha avanzado al estado: ${nuevoEstado}`;
+
+    if (!tituloObservacion) {
+      if (nuevoEstado === "Entrevista") {
+        tituloNuevo = "Entrevista programada/realizada";
+      } else if (nuevoEstado === "Visita") {
+        tituloNuevo = "Visita domiciliaria";
+      } else if (nuevoEstado === "Aprobada") {
+        tituloNuevo = "Solicitud Aprobada";
+      } else if (nuevoEstado === "Rechazada") {
+        tituloNuevo = "Solicitud Rechazada";
+      }
+    }
+
+    const nuevoItemCronologia = {
+      fecha: new Date().toISOString(),
+      titulo: tituloNuevo,
+      detalle: detalleNuevo,
+    };
+
+    // Actualizamos con la nueva cronologia
+    const { error: errorUpdate } = await supabase
+      .from("solicitudes_adopcion")
+      .update({
+        estado: nuevoEstado,
+        cronologia: [...cronologiaAnterior, nuevoItemCronologia],
+        actualizado_en: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    if (errorUpdate) throw errorUpdate;
+
+    // --- Automatizaciones de la Mascota ---
+    if (actual.mascota_id) {
+      // 1. Cuando la solicitud pasa a "Entrevista", la mascota pasa a "En proceso"
+      if (nuevoEstado === "Entrevista") {
+        await supabase
+          .from("mascotas")
+          .update({ estado: "En proceso" })
+          .eq("id", actual.mascota_id);
+      } 
+      // 2. Cuando la solicitud pasa a "Entregado", la mascota pasa a "Adoptado"
+      else if (nuevoEstado === "Entregado") {
+        await supabase
+          .from("mascotas")
+          .update({ estado: "Adoptado" })
+          .eq("id", actual.mascota_id);
+
+        // 3. Auto-rechazar las demás solicitudes para esta misma mascota
+        const { data: otrasSolicitudes } = await supabase
+          .from("solicitudes_adopcion")
+          .select("id, cronologia")
+          .eq("mascota_id", actual.mascota_id)
+          .neq("id", id)
+          .neq("estado", "Rechazada");
+
+        if (otrasSolicitudes && otrasSolicitudes.length > 0) {
+          const itemRechazoAuto = {
+            fecha: new Date().toISOString(),
+            titulo: "Solicitud Rechazada Automáticamente",
+            detalle: "Lo sentimos, esta mascota ya ha encontrado un hogar definitivo con otra familia. Tu cupo de solicitud ha sido liberado para que puedas postularte a otra mascota."
+          };
+
+          for (const otra of otrasSolicitudes) {
+            const cronoOtra = Array.isArray(otra.cronologia) ? otra.cronologia : [];
+            await supabase
+              .from("solicitudes_adopcion")
+              .update({
+                estado: "Rechazada",
+                cronologia: [...cronoOtra, itemRechazoAuto],
+                actualizado_en: new Date().toISOString()
+              })
+              .eq("id", otra.id);
+          }
+        }
+      }
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Error al actualizar la solicitud";
+    console.error("[Solicitudes Service] Error actualizando estado:", err);
+    throw new Error(msg);
   }
 }
 

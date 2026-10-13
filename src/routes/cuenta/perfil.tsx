@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usuarioDemo } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 import { ciudades } from "@/mock/mascotas";
 
 export const Route = createFileRoute("/cuenta/perfil")({
@@ -54,7 +54,12 @@ export const Route = createFileRoute("/cuenta/perfil")({
 });
 
 function Pagina() {
+  const { user, perfil } = useAuth();
   const [guardando, setGuardando] = useState(false);
+
+  const nombre = perfil?.nombre || user?.user_metadata?.nombre || user?.user_metadata?.full_name || "Usuario";
+  const correo = perfil?.correo || user?.email || "";
+  const iniciales = nombre.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "BYC";
 
   function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -78,12 +83,12 @@ function Pagina() {
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
           <Avatar className="size-16">
             <AvatarFallback className="bg-secondary text-lg text-secondary-foreground">
-              {usuarioDemo.iniciales}
+              {iniciales}
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-display text-lg font-semibold">{usuarioDemo.nombre}</p>
-            <p className="text-sm text-muted-foreground">{usuarioDemo.correo}</p>
+            <p className="font-display text-lg font-semibold">{nombre}</p>
+            <p className="text-sm text-muted-foreground">{correo}</p>
           </div>
           <Button
             variant="outline"
@@ -113,13 +118,13 @@ function Pagina() {
                   <Label htmlFor="p-nombre" className="mb-1.5 block">
                     Nombre completo
                   </Label>
-                  <Input id="p-nombre" defaultValue={usuarioDemo.nombre} />
+                  <Input id="p-nombre" defaultValue={nombre} />
                 </div>
                 <div>
                   <Label htmlFor="p-correo" className="mb-1.5 block">
                     Correo electrónico
                   </Label>
-                  <Input id="p-correo" type="email" defaultValue={usuarioDemo.correo} />
+                  <Input id="p-correo" type="email" defaultValue={correo} />
                 </div>
                 <div>
                   <Label htmlFor="p-telefono" className="mb-1.5 block">

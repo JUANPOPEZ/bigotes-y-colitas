@@ -13,7 +13,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { usuarioDemo } from "@/lib/mock-session";
+
 import { useAuth } from "@/lib/auth";
 import { notificaciones } from "@/mock";
 
@@ -41,8 +41,8 @@ function CuentaLayout() {
     user?.user_metadata?.nombre ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
-    usuarioDemo.nombre;
-  const correo = perfil?.correo || user?.email || usuarioDemo.correo;
+    "Usuario";
+  const correo = perfil?.correo || user?.email || "";
   const iniciales =
     nombre
       .split(" ")

@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { iniciarSesion, iniciarSesionConGoogle, ingresarComoDemo } from "@/lib/auth";
+import { iniciarSesion, iniciarSesionConGoogle } from "@/lib/auth";
 import heroPets from "@/assets/hero-pets.jpg";
 
 export const Route = createFileRoute("/auth/login")({
@@ -96,15 +96,7 @@ function Pagina() {
     }
   }
 
-  function ingresarDemo(rol: "adoptante" | "administrador") {
-    ingresarComoDemo(rol);
-    toast.success(
-      rol === "administrador"
-        ? "Sesión iniciada como administrador (Modo Exploración)"
-        : "Sesión iniciada como adoptante (Modo Exploración)",
-    );
-    navigate({ to: rol === "administrador" ? "/admin" : "/cuenta" });
-  }
+
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -248,22 +240,7 @@ function Pagina() {
                 </Button>
               </form>
 
-              <div className="my-5 flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  o explora la demo
-                </span>
-                <Separator className="flex-1" />
-              </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" type="button" onClick={() => ingresarDemo("adoptante")}>
-                  Entrar como adoptante (Demo)
-                </Button>
-                <Button variant="outline" type="button" onClick={() => ingresarDemo("administrador")}>
-                  Entrar como admin (Demo)
-                </Button>
-              </div>
             </CardContent>
           </Card>
 

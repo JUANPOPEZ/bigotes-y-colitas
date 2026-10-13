@@ -6,10 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { StatCard } from "@/components/shared/stat-card";
-import { conversaciones, donaciones, notificaciones, solicitudes } from "@/mock";
+import { conversaciones, donaciones, notificaciones } from "@/mock";
 import { mascotas } from "@/mock/mascotas";
-import { usuarioDemo } from "@/lib/mock-session";
+
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { obtenerSolicitudesUsuario } from "@/lib/services/solicitudes";
+import type { Solicitud } from "@/types";
 
 export const Route = createFileRoute("/cuenta/")({
   head: () => ({
@@ -41,11 +44,18 @@ function Pagina() {
     user?.user_metadata?.nombre ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
-    usuarioDemo.nombre;
+    "Usuario";
   const primerNombre = nombre.split(" ")[0];
-  const correo = perfil?.correo || user?.email || usuarioDemo.correo;
+  const correo = perfil?.correo || user?.email || "";
 
-  const mias = solicitudes.filter((s) => s.correo === correo);
+  const [mias, setMias] = useState<Solicitud[]>([]);
+  
+  useEffect(() => {
+    obtenerSolicitudesUsuario(user?.id, correo).then((datos) => {
+      setMias(datos || []);
+    }).catch(console.error);
+  }, [user?.id, correo]);
+
   const activa = mias.find((s) => s.estado !== "Aprobada" && s.estado !== "Rechazada");
   const misDonaciones = donaciones.filter((d) => d.donante === nombre);
   const favoritas = mascotas.slice(0, 3);

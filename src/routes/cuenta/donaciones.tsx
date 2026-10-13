@@ -16,7 +16,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { campanas, donaciones } from "@/mock";
-import { usuarioDemo } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/cuenta/donaciones")({
   head: () => ({
@@ -46,7 +46,10 @@ const moneda = new Intl.NumberFormat("es-CO", {
 });
 
 function Pagina() {
-  const mias = donaciones.filter((d) => d.donante === usuarioDemo.nombre);
+  const { user, perfil } = useAuth();
+  const nombre = perfil?.nombre || user?.user_metadata?.nombre || user?.user_metadata?.full_name || "Usuario";
+  
+  const mias = donaciones.filter((d) => d.donante === nombre);
   const total = mias.reduce((acc, d) => acc + (d.monto ?? 0), 0);
 
   return (

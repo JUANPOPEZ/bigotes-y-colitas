@@ -54,6 +54,8 @@ export interface Solicitud {
   fecha: string;
   estado: EstadoSolicitud;
   cronologia: { fecha: string; titulo: string; detalle: string }[];
+  datosFormulario?: any;
+  telefono?: string | null;
 }
 
 export interface Usuario {

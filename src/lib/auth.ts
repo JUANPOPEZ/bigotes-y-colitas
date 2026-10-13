@@ -180,6 +180,21 @@ export async function registrarUsuario(params: {
     throw new Error(error?.message || "No se pudo registrar el usuario en Supabase.");
   }
 
+  // Intentamos crear el perfil explícitamente por si no hay trigger
+  const { error: errorPerfil } = await supabase.from("perfiles").upsert({
+    id: data.user.id,
+    nombre: nombre.trim(),
+    correo: email.trim(),
+    rol: rol as any,
+    ciudad: ciudad || "Bogotá",
+    telefono: telefono || null,
+    estado: "Activo",
+  }, { onConflict: "id" });
+
+  if (errorPerfil) {
+    console.warn("[Auth] Error creando perfil (podría ya existir por trigger):", errorPerfil);
+  }
+
   if (data.session) {
     await sincronizarSesion(data.session);
   }
@@ -223,48 +238,5 @@ export async function iniciarSesionConGoogle(): Promise<void> {
   if (error) {
     throw new Error(error.message || "Error al iniciar sesión con Google.");
   }
-}
-
-/**
- * Permite acceder en modo de exploración / demo sin bloquear la UI ni depender de red.
- * Notifica a useAuth() reactivamente para reflejar el rol correspondiente.
- */
-export function ingresarComoDemo(rol: "adoptante" | "administrador"): void {
-  const userDemo: User = {
-    id: rol === "administrador" ? "demo-admin-id" : "demo-adoptante-id",
-    app_metadata: {},
-    user_metadata: {
-      nombre: rol === "administrador" ? "Administrador Demo" : "María Fernanda López",
-      rol,
-    },
-    aud: "authenticated",
-    created_at: new Date().toISOString(),
-    email: rol === "administrador" ? "admin@bigotesycolitas.org" : "maria.lopez@correo.com",
-    phone: "3001234567",
-    role: "authenticated",
-    updated_at: new Date().toISOString(),
-  };
-
-  const perfilDemo: PerfilRow = {
-    id: userDemo.id,
-    nombre: rol === "administrador" ? "Administrador Demo" : "María Fernanda López",
-    correo: userDemo.email!,
-    rol,
-    ciudad: "Bogotá",
-    telefono: "3001234567",
-    avatar_url: null,
-    creado_en: new Date().toISOString(),
-    actualizado_en: new Date().toISOString(),
-  };
-
-  estadoGlobal = {
-    user: userDemo,
-    session: null,
-    perfil: perfilDemo,
-    rol,
-    autenticado: true,
-    cargando: false,
-  };
-  emitir();
 }
 
