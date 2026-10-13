@@ -453,7 +453,7 @@ export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").So
   try {
     const { data, error } = await supabase
       .from("solicitudes_adopcion")
-      .select("*, mascotas(id, nombre, especie, ciudad)")
+      .select("*, mascotas(id, nombre, especie, ciudad, galeria)")
       .order("creado_en", { ascending: false });
 
     if (error) {
@@ -464,8 +464,9 @@ export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").So
     if (!data) return [];
 
     return data.map((row) => {
-      const mascotaInfo = (row as unknown as { mascotas?: { id: string; nombre: string; especie: string; ciudad: string } }).mascotas;
+      const mascotaInfo = (row as unknown as { mascotas?: { id: string; nombre: string; especie: string; ciudad: string; galeria?: string[] } }).mascotas;
       const datosHogar = (row.datos_hogar || {}) as Record<string, unknown>;
+      const datosForm = (row.datos_formulario || {}) as Record<string, unknown>;
       const nombreMascota = mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
       const crono = Array.isArray(row.cronologia) ? row.cronologia : [];
 
@@ -486,6 +487,10 @@ export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").So
         })),
         datosFormulario: row.datos_formulario,
         telefono: row.telefono,
+        // Campos aditivos para HU-09 (sin alterar campos existentes)
+        mascotaEspecie: mascotaInfo?.especie,
+        mascotaFoto: Array.isArray(mascotaInfo?.galeria) && mascotaInfo.galeria.length > 0 ? mascotaInfo.galeria[0] : undefined,
+        documento: (datosHogar.documento as string) || (datosForm.documento as string) || undefined,
       };
     });
   } catch (err) {
@@ -649,4 +654,49 @@ export async function actualizarEstadoSolicitud(
     throw new Error(msg);
   }
 }
+
+/**
+ * Registra formalmente la entrega de una mascota para una solicitud aprobada (HU-09).
+ * Invoca la función RPC atómica en Supabase que valida permisos de admin, actualiza
+ * la solicitud a 'Entregado', la mascota a 'Adoptado', añade el evento a la cronología
+ * y crea el registro formal en la tabla 'adopciones'.
+ */
+export async function registrarEntregaSolicitud(
+  solicitudId: string,
+  observaciones?: string
+): Promise<{
+  success: boolean;
+  radicado?: string;
+  adopcionId?: string;
+  mensaje?: string;
+}> {
+  if (!solicitudId || !esUuidValido(solicitudId)) {
+    throw new Error("El identificador de la solicitud es inválido.");
+  }
+
+  try {
+    const { data, error } = await supabase.rpc("registrar_entrega_mascota", {
+      p_solicitud_id: solicitudId,
+      p_observaciones: observaciones?.trim() || null,
+    });
+
+    if (error) {
+      if (error.code === "42883" || error.message.includes("does not exist")) {
+        throw new Error(
+          "La función 'registrar_entrega_mascota' aún no existe en Supabase. Por favor ejecuta el script SQL de migración en el SQL Editor de Supabase."
+        );
+      }
+      throw new Error(error.message || "Error al registrar la entrega de la mascota en Supabase.");
+    }
+
+    return (data as unknown as { success: boolean; radicado?: string; adopcionId?: string; mensaje?: string }) || {
+      success: true,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Error inesperado al registrar la entrega.";
+    console.error("[Solicitudes Service] Error registrando entrega:", err);
+    throw new Error(msg);
+  }
+}
+
 

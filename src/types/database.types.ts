@@ -502,6 +502,47 @@ export interface Database {
           creado_en?: string;
         };
       };
+      adopciones: {
+        Row: {
+          id: string;
+          solicitud_id: string;
+          mascota_id: string;
+          usuario_id: string | null;
+          entregado_por: string | null;
+          fecha_entrega: string;
+          observaciones: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          solicitud_id: string;
+          mascota_id: string;
+          usuario_id?: string | null;
+          entregado_por?: string | null;
+          fecha_entrega?: string;
+          observaciones?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          solicitud_id?: string;
+          mascota_id?: string;
+          usuario_id?: string | null;
+          entregado_por?: string | null;
+          fecha_entrega?: string;
+          observaciones?: string | null;
+          created_at?: string;
+        };
+      };
+    };
+    Functions: {
+      registrar_entrega_mascota: {
+        Args: {
+          p_solicitud_id: string;
+          p_observaciones?: string | null;
+        };
+        Returns: Json;
+      };
     };
   };
 }

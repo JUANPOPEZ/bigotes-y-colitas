@@ -56,6 +56,20 @@ export interface Solicitud {
   cronologia: { fecha: string; titulo: string; detalle: string }[];
   datosFormulario?: any;
   telefono?: string | null;
+  mascotaEspecie?: string;
+  mascotaFoto?: string;
+  documento?: string;
+}
+
+export interface Adopcion {
+  id: string;
+  solicitudId: string;
+  mascotaId: string;
+  usuarioId: string | null;
+  entregadoPor: string | null;
+  fechaEntrega: string;
+  observaciones?: string | null;
+  createdAt: string;
 }
 
 export interface Usuario {
