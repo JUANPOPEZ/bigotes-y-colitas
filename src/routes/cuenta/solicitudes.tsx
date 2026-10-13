@@ -116,12 +116,14 @@ function Pagina() {
 
       <div
         className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 text-sm ${
-          permitido ? "border-border bg-cream/60" : "border-destructive/30 bg-destructive/10 text-destructive"
+          permitido
+            ? "border-border bg-cream/60"
+            : "border-destructive/30 bg-destructive/10 text-destructive"
         }`}
       >
         <p>
-          Tienes <span className="font-semibold">{activas}</span> de {MAX_SOLICITUDES_ACTIVAS} solicitudes
-          en proceso.{" "}
+          Tienes <span className="font-semibold">{activas}</span> de {MAX_SOLICITUDES_ACTIVAS}{" "}
+          solicitudes en proceso.{" "}
           {permitido
             ? `Puedes enviar ${restantes} solicitud${restantes === 1 ? "" : "es"} más. Al aprobarse o resolverse una solicitud se libera un cupo.`
             : "Has alcanzado el límite máximo de 3 solicitudes activas. Debes esperar la resolución de un proceso en curso antes de enviar otra solicitud."}
@@ -178,7 +180,8 @@ function Pagina() {
                     Enviada el {s.fecha} · {s.ciudad}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Último avance: {s.cronologia[s.cronologia.length - 1]?.titulo || "En espera de revisión"}
+                    Último avance:{" "}
+                    {s.cronologia[s.cronologia.length - 1]?.titulo || "En espera de revisión"}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -198,14 +201,18 @@ function Pagina() {
                       size="sm"
                       className="ml-2"
                       onClick={async () => {
-                        if (confirm("¿Estás seguro de que deseas cancelar y eliminar esta solicitud?")) {
+                        if (
+                          confirm("¿Estás seguro de que deseas cancelar y eliminar esta solicitud?")
+                        ) {
                           try {
                             await eliminarSolicitudPendiente(s.id);
                             toast.success("Solicitud cancelada correctamente.");
                             // Forzar recarga simple
                             window.location.reload();
-                          } catch (err: any) {
-                            toast.error(err.message || "Error al cancelar la solicitud");
+                          } catch (err: unknown) {
+                            const msg =
+                              err instanceof Error ? err.message : "Error al cancelar la solicitud";
+                            toast.error(msg);
                           }
                         }
                       }}
@@ -236,7 +243,8 @@ function Pagina() {
                 <span className="absolute -left-[26px] top-1.5 size-2.5 rounded-full bg-mustard" />
                 <p className="text-sm font-medium">{c.titulo}</p>
                 <p className="text-xs text-muted-foreground">
-                  {c.fecha} · {c.detalle}
+                  {c.fecha && c.fecha !== "Invalid Date" ? `${c.fecha} · ` : ""}
+                  {c.detalle}
                 </p>
               </li>
             ))}

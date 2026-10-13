@@ -12,7 +12,33 @@ import type { EstadoSolicitud } from "@/types";
  */
 export function esUuidValido(id?: string | null): boolean {
   if (!id) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id.trim());
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id.trim(),
+  );
+}
+
+/**
+ * Formatea de manera segura una fecha proveniente de la base de datos o cronología,
+ * evitando 'Invalid Date' cuando la fecha contiene offsets de Postgres (ej. -05) o ya fue formateada.
+ */
+export function formatearFechaSegura(fechaStr?: string | null): string {
+  if (!fechaStr) return "";
+  const str = String(fechaStr).trim();
+  if (!str || str === "Invalid Date") return "";
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  // Si tiene offset de tipo -05 o +02 (dos dígitos tras el signo sin minutos)
+  const conMinutos = str.replace(/([+-]\d{2})$/, "$1:00");
+  const d2 = new Date(conMinutos);
+  if (!isNaN(d2.getTime())) {
+    return d2.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  return str;
 }
 
 /**
@@ -66,7 +92,7 @@ export interface SolicitudAdopcionCreada {
  */
 export async function contarSolicitudesActivas(
   usuarioId?: string | null,
-  correo?: string | null
+  correo?: string | null,
 ): Promise<number> {
   const correoLimpio = correo?.trim().toLowerCase();
   const tieneUuid = esUuidValido(usuarioId);
@@ -92,7 +118,10 @@ export async function contarSolicitudesActivas(
     const { data, count, error } = await query;
 
     if (error) {
-      console.warn("[Solicitudes Service] Advertencia al consultar solicitudes activas:", error.message);
+      console.warn(
+        "[Solicitudes Service] Advertencia al consultar solicitudes activas:",
+        error.message,
+      );
       return 0;
     }
 
@@ -108,7 +137,7 @@ export async function contarSolicitudesActivas(
  */
 export async function verificarLimiteSolicitudesUsuario(
   usuarioId?: string | null,
-  correo?: string | null
+  correo?: string | null,
 ): Promise<{ activas: number; restantes: number; permitido: boolean }> {
   const activas = await contarSolicitudesActivas(usuarioId, correo);
   return calcularDisponibilidadSolicitudes(activas);
@@ -120,7 +149,7 @@ export async function verificarLimiteSolicitudesUsuario(
 export async function verificarSolicitudDuplicada(
   mascotaId: string,
   usuarioId?: string | null,
-  correo?: string | null
+  correo?: string | null,
 ): Promise<boolean> {
   const usuarioIdValido = esUuidValido(usuarioId) ? usuarioId : null;
   const correoLimpio = correo?.trim().toLowerCase();
@@ -132,7 +161,7 @@ export async function verificarSolicitudDuplicada(
     .select("id")
     .eq("mascota_id", mascotaId)
     .in("estado", ESTADOS_EN_TRAMITE);
-    
+
   if (usuarioIdValido && correoLimpio) {
     query = query.or(`usuario_id.eq.${usuarioIdValido},correo.eq.${correoLimpio}`);
   } else if (usuarioIdValido) {
@@ -160,7 +189,7 @@ export async function verificarSolicitudDuplicada(
  * - Asocia usuario_id y mascota_id.
  */
 export async function registrarSolicitudAdopcion(
-  datos: FormularioSolicitudInput
+  datos: FormularioSolicitudInput,
 ): Promise<SolicitudAdopcionCreada> {
   // 1. Validaciones de presencia
   if (!datos.mascotaId) {
@@ -194,7 +223,9 @@ export async function registrarSolicitudAdopcion(
     throw new Error("Indica cuánto tiempo pasará sola la mascota al día.");
   }
   if (!datos.motivo?.trim() || datos.motivo.trim().length < 10) {
-    throw new Error("Por favor cuéntanos detalladamente por qué deseas adoptar (mínimo 10 caracteres).");
+    throw new Error(
+      "Por favor cuéntanos detalladamente por qué deseas adoptar (mínimo 10 caracteres).",
+    );
   }
   if (!datos.experienciaPrevia?.trim()) {
     throw new Error("Indica si tienes experiencia previa cuidando mascotas.");
@@ -214,7 +245,7 @@ export async function registrarSolicitudAdopcion(
     if (!errorMascota && mascotaDB) {
       if (mascotaDB.estado !== "Disponible") {
         throw new Error(
-          `La mascota "${mascotaDB.nombre}" ya no se encuentra disponible (estado actual: ${mascotaDB.estado}). Solo se pueden solicitar mascotas en estado Disponible.`
+          `La mascota "${mascotaDB.nombre}" ya no se encuentra disponible (estado actual: ${mascotaDB.estado}). Solo se pueden solicitar mascotas en estado Disponible.`,
         );
       }
     }
@@ -229,7 +260,7 @@ export async function registrarSolicitudAdopcion(
   const activas = await contarSolicitudesActivas(datos.usuarioId, datos.correo);
   if (activas >= MAX_SOLICITUDES_ACTIVAS) {
     throw new Error(
-      `Ya tienes ${activas} de ${MAX_SOLICITUDES_ACTIVAS} solicitudes activas en proceso. Debes esperar a que alguna se resuelva antes de crear una nueva.`
+      `Ya tienes ${activas} de ${MAX_SOLICITUDES_ACTIVAS} solicitudes activas en proceso. Debes esperar a que alguna se resuelva antes de crear una nueva.`,
     );
   }
 
@@ -241,7 +272,7 @@ export async function registrarSolicitudAdopcion(
     .select("id")
     .eq("mascota_id", datos.mascotaId)
     .in("estado", ESTADOS_EN_TRAMITE);
-    
+
   if (usuarioIdValido) {
     queryDuplicada = queryDuplicada.eq("usuario_id", usuarioIdValido);
   } else {
@@ -250,7 +281,9 @@ export async function registrarSolicitudAdopcion(
 
   const { data: duplicadas, error: errorDup } = await queryDuplicada;
   if (!errorDup && duplicadas && duplicadas.length > 0) {
-    throw new Error("Ya tienes una solicitud en proceso para esta misma mascota. Por favor, espera a que se resuelva.");
+    throw new Error(
+      "Ya tienes una solicitud en proceso para esta misma mascota. Por favor, espera a que se resuelva.",
+    );
   }
 
   // 4. Generación de radicado único
@@ -306,7 +339,9 @@ export async function registrarSolicitudAdopcion(
     if (error) {
       // Manejar caso donde la columna 'radicado' o 'datos_formulario' aún no existan en la tabla remota
       if (error.code === "42703") {
-        console.warn("[Solicitudes Service] Columna faltante en DB remota (código 42703), reintentando con esquema base...");
+        console.warn(
+          "[Solicitudes Service] Columna faltante en DB remota (código 42703), reintentando con esquema base...",
+        );
         const payloadBase = {
           mascota_id: datos.mascotaId,
           usuario_id: usuarioIdValido,
@@ -346,14 +381,14 @@ export async function registrarSolicitudAdopcion(
       // Si viola la regla de límite del trigger de Postgres
       if (error.message.includes("solicitudes activas") || error.code === "23514") {
         throw new Error(
-          "Ya tienes 3 solicitudes activas en proceso de adopción. Debes esperar a que se resuelva alguna para postular una nueva."
+          "Ya tienes 3 solicitudes activas en proceso de adopción. Debes esperar a que se resuelva alguna para postular una nueva.",
         );
       }
 
       // Si PostgreSQL bloquea por RLS (falta de política INSERT en Supabase)
       if (error.code === "42501" || error.message.includes("row-level security")) {
         throw new Error(
-          "Supabase bloqueó el registro: la tabla 'solicitudes_adopcion' tiene RLS activado pero aún no tiene la política de inserción. Ejecuta el script de migración en el SQL Editor de Supabase."
+          "Supabase bloqueó el registro: la tabla 'solicitudes_adopcion' tiene RLS activado pero aún no tiene la política de inserción. Ejecuta el script de migración en el SQL Editor de Supabase.",
         );
       }
 
@@ -373,7 +408,8 @@ export async function registrarSolicitudAdopcion(
       creadoEn: data.creado_en,
     };
   } catch (err: unknown) {
-    const mensaje = err instanceof Error ? err.message : "Error inesperado al registrar la solicitud.";
+    const mensaje =
+      err instanceof Error ? err.message : "Error inesperado al registrar la solicitud.";
     console.error("[Solicitudes Service] Error registrando solicitud:", err);
     throw new Error(mensaje);
   }
@@ -384,7 +420,7 @@ export async function registrarSolicitudAdopcion(
  */
 export async function obtenerSolicitudesUsuario(
   usuarioId?: string | null,
-  correo?: string | null
+  correo?: string | null,
 ): Promise<import("@/types").Solicitud[]> {
   const correoLimpio = correo?.trim().toLowerCase();
   const tieneUuid = esUuidValido(usuarioId);
@@ -409,33 +445,46 @@ export async function obtenerSolicitudesUsuario(
 
     const { data, error } = await query;
     if (error) {
-      console.warn("[Solicitudes Service] Error al consultar solicitudes del usuario:", error.message);
+      console.warn(
+        "[Solicitudes Service] Error al consultar solicitudes del usuario:",
+        error.message,
+      );
       return [];
     }
 
     if (!data) return [];
 
     return data.map((row) => {
-      const mascotaInfo = (row as unknown as { mascotas?: { id: string; nombre: string; especie: string; ciudad: string } }).mascotas;
+      const mascotaInfo = (
+        row as unknown as {
+          mascotas?: { id: string; nombre: string; especie: string; ciudad: string };
+        }
+      ).mascotas;
       const datosHogar = (row.datos_hogar || {}) as Record<string, unknown>;
-      const nombreMascota = mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
+      const nombreMascota =
+        mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
       const crono = Array.isArray(row.cronologia) ? row.cronologia : [];
 
       return {
         id: row.id,
-        radicado: (row as unknown as { radicado?: string }).radicado || (datosHogar.radicado as string) || undefined,
+        radicado:
+          (row as unknown as { radicado?: string }).radicado ||
+          (datosHogar.radicado as string) ||
+          undefined,
         mascota: nombreMascota,
         mascotaId: row.mascota_id,
         solicitante: row.solicitante,
         correo: row.correo,
         ciudad: row.ciudad,
-        fecha: row.creado_en ? new Date(row.creado_en).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
+        fecha: formatearFechaSegura(row.creado_en),
         estado: row.estado as import("@/types").EstadoSolicitud,
-        cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map((c) => ({
-          fecha: c.fecha ? new Date(c.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
-          titulo: c.titulo || "",
-          detalle: c.detalle || "",
-        })),
+        cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map(
+          (c) => ({
+            fecha: formatearFechaSegura(c.fecha),
+            titulo: c.titulo || "",
+            detalle: c.detalle || "",
+          }),
+        ),
         datosFormulario: row.datos_formulario,
         telefono: row.telefono,
       };
@@ -457,39 +506,61 @@ export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").So
       .order("creado_en", { ascending: false });
 
     if (error) {
-      console.warn("[Solicitudes Service] Error al consultar todas las solicitudes:", error.message);
+      console.warn(
+        "[Solicitudes Service] Error al consultar todas las solicitudes:",
+        error.message,
+      );
       return [];
     }
 
     if (!data) return [];
 
     return data.map((row) => {
-      const mascotaInfo = (row as unknown as { mascotas?: { id: string; nombre: string; especie: string; ciudad: string; galeria?: string[] } }).mascotas;
+      const mascotaInfo = (
+        row as unknown as {
+          mascotas?: {
+            id: string;
+            nombre: string;
+            especie: string;
+            ciudad: string;
+            galeria?: string[];
+          };
+        }
+      ).mascotas;
       const datosHogar = (row.datos_hogar || {}) as Record<string, unknown>;
       const datosForm = (row.datos_formulario || {}) as Record<string, unknown>;
-      const nombreMascota = mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
+      const nombreMascota =
+        mascotaInfo?.nombre || (datosHogar.nombre_mascota as string) || "Mascota";
       const crono = Array.isArray(row.cronologia) ? row.cronologia : [];
 
       return {
         id: row.id,
-        radicado: (row as unknown as { radicado?: string }).radicado || (datosHogar.radicado as string) || undefined,
+        radicado:
+          (row as unknown as { radicado?: string }).radicado ||
+          (datosHogar.radicado as string) ||
+          undefined,
         mascota: nombreMascota,
         mascotaId: row.mascota_id,
         solicitante: row.solicitante,
         correo: row.correo,
         ciudad: row.ciudad,
-        fecha: row.creado_en ? new Date(row.creado_en).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
+        fecha: formatearFechaSegura(row.creado_en),
         estado: row.estado as import("@/types").EstadoSolicitud,
-        cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map((c) => ({
-          fecha: c.fecha ? new Date(c.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "",
-          titulo: c.titulo || "",
-          detalle: c.detalle || "",
-        })),
+        cronologia: (crono as Array<{ fecha?: string; titulo?: string; detalle?: string }>).map(
+          (c) => ({
+            fecha: formatearFechaSegura(c.fecha),
+            titulo: c.titulo || "",
+            detalle: c.detalle || "",
+          }),
+        ),
         datosFormulario: row.datos_formulario,
         telefono: row.telefono,
         // Campos aditivos para HU-09 (sin alterar campos existentes)
         mascotaEspecie: mascotaInfo?.especie,
-        mascotaFoto: Array.isArray(mascotaInfo?.galeria) && mascotaInfo.galeria.length > 0 ? mascotaInfo.galeria[0] : undefined,
+        mascotaFoto:
+          Array.isArray(mascotaInfo?.galeria) && mascotaInfo.galeria.length > 0
+            ? mascotaInfo.galeria[0]
+            : undefined,
         documento: (datosHogar.documento as string) || (datosForm.documento as string) || undefined,
       };
     });
@@ -555,7 +626,7 @@ export async function actualizarEstadoSolicitud(
   id: string,
   nuevoEstado: EstadoSolicitud,
   observaciones?: string,
-  tituloObservacion?: string
+  tituloObservacion?: string,
 ) {
   try {
     // Primero, obtenemos la cronología actual y el id de la mascota
@@ -568,10 +639,11 @@ export async function actualizarEstadoSolicitud(
     if (errorGet) throw errorGet;
 
     const cronologiaAnterior = Array.isArray(actual.cronologia) ? actual.cronologia : [];
-    
+
     // Si no nos pasan un título explícito desde el frontend, lo inferimos basado en el nuevo estado
     let tituloNuevo = tituloObservacion || `Cambio de estado a ${nuevoEstado}`;
-    let detalleNuevo = observaciones?.trim() || `La solicitud ha avanzado al estado: ${nuevoEstado}`;
+    const detalleNuevo =
+      observaciones?.trim() || `La solicitud ha avanzado al estado: ${nuevoEstado}`;
 
     if (!tituloObservacion) {
       if (nuevoEstado === "Entrevista") {
@@ -597,7 +669,7 @@ export async function actualizarEstadoSolicitud(
       .update({
         estado: nuevoEstado,
         cronologia: [...cronologiaAnterior, nuevoItemCronologia],
-        actualizado_en: new Date().toISOString()
+        actualizado_en: new Date().toISOString(),
       })
       .eq("id", id);
 
@@ -611,13 +683,10 @@ export async function actualizarEstadoSolicitud(
           .from("mascotas")
           .update({ estado: "En proceso" })
           .eq("id", actual.mascota_id);
-      } 
+      }
       // 2. Cuando la solicitud pasa a "Entregado", la mascota pasa a "Adoptado"
       else if (nuevoEstado === "Entregado") {
-        await supabase
-          .from("mascotas")
-          .update({ estado: "Adoptado" })
-          .eq("id", actual.mascota_id);
+        await supabase.from("mascotas").update({ estado: "Adoptado" }).eq("id", actual.mascota_id);
 
         // 3. Auto-rechazar las demás solicitudes para esta misma mascota
         const { data: otrasSolicitudes } = await supabase
@@ -631,7 +700,8 @@ export async function actualizarEstadoSolicitud(
           const itemRechazoAuto = {
             fecha: new Date().toISOString(),
             titulo: "Solicitud Rechazada Automáticamente",
-            detalle: "Lo sentimos, esta mascota ya ha encontrado un hogar definitivo con otra familia. Tu cupo de solicitud ha sido liberado para que puedas postularte a otra mascota."
+            detalle:
+              "Lo sentimos, esta mascota ya ha encontrado un hogar definitivo con otra familia. Tu cupo de solicitud ha sido liberado para que puedas postularte a otra mascota.",
           };
 
           for (const otra of otrasSolicitudes) {
@@ -641,7 +711,7 @@ export async function actualizarEstadoSolicitud(
               .update({
                 estado: "Rechazada",
                 cronologia: [...cronoOtra, itemRechazoAuto],
-                actualizado_en: new Date().toISOString()
+                actualizado_en: new Date().toISOString(),
               })
               .eq("id", otra.id);
           }
@@ -663,7 +733,7 @@ export async function actualizarEstadoSolicitud(
  */
 export async function registrarEntregaSolicitud(
   solicitudId: string,
-  observaciones?: string
+  observaciones?: string,
 ): Promise<{
   success: boolean;
   radicado?: string;
@@ -683,20 +753,25 @@ export async function registrarEntregaSolicitud(
     if (error) {
       if (error.code === "42883" || error.message.includes("does not exist")) {
         throw new Error(
-          "La función 'registrar_entrega_mascota' aún no existe en Supabase. Por favor ejecuta el script SQL de migración en el SQL Editor de Supabase."
+          "La función 'registrar_entrega_mascota' aún no existe en Supabase. Por favor ejecuta el script SQL de migración en el SQL Editor de Supabase.",
         );
       }
       throw new Error(error.message || "Error al registrar la entrega de la mascota en Supabase.");
     }
 
-    return (data as unknown as { success: boolean; radicado?: string; adopcionId?: string; mensaje?: string }) || {
-      success: true,
-    };
+    return (
+      (data as unknown as {
+        success: boolean;
+        radicado?: string;
+        adopcionId?: string;
+        mensaje?: string;
+      }) || {
+        success: true,
+      }
+    );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error inesperado al registrar la entrega.";
     console.error("[Solicitudes Service] Error registrando entrega:", err);
     throw new Error(msg);
   }
 }
-
-

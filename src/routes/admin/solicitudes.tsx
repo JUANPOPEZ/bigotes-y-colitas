@@ -272,8 +272,10 @@ function Pagina() {
                             c.titulo?.toLowerCase().includes("entrega") ||
                             c.detalle?.toLowerCase().includes("entrega"),
                         );
-                      return eventoEntrega
-                        ? `Registrada el ${eventoEntrega.fecha}`
+                      const fechaTxt = eventoEntrega?.fecha?.trim();
+                      const fechaValida = Boolean(fechaTxt && fechaTxt !== "Invalid Date");
+                      return fechaValida
+                        ? `Registrada el ${fechaTxt}`
                         : "El proceso de adopción ha concluido satisfactoriamente.";
                     })()}
                   </p>
