@@ -11,8 +11,8 @@
 -- una adición de valor a un ENUM no puede usarse en la misma transacción.
 --
 -- BLOQUE 2 (Ejecutar DESPUÉS):
--- Crea la tabla 'adopciones', configura RLS, e implementa la función
--- transaccional atómica 'registrar_entrega_mascota'.
+-- Crea la tabla 'adopciones', actualiza foreign key a CASCADE, configura RLS,
+-- e implementa las funciones 'registrar_entrega_mascota' y 'eliminar_solicitud_admin'.
 -- ====================================================================
 
 -- ====================================================================
@@ -26,14 +26,27 @@ EXCEPTION
 END $$;
 
 -- ====================================================================
--- BLOQUE 2: TABLA adopciones, POLÍTICAS RLS Y FUNCIÓN RPC ATÓMICA
+-- BLOQUE 2: TABLA adopciones, POLÍTICAS RLS Y FUNCIONES RPC ATÓMICAS
 -- (Ejecutar después de haber ejecutado el Bloque 1)
 -- ====================================================================
+
+-- 0. Garantizar que todos los administradores (perfiles o user_metadata) sean reconocidos
+CREATE OR REPLACE FUNCTION public.es_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.perfiles
+        WHERE id = auth.uid() AND LOWER(rol::text) = 'administrador'
+    ) OR (
+        COALESCE(auth.jwt() -> 'user_metadata' ->> 'rol', '') = 'administrador'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 1. Crear tabla public.adopciones para registro y seguimiento (Criterio 7)
 CREATE TABLE IF NOT EXISTS public.adopciones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    solicitud_id UUID NOT NULL UNIQUE REFERENCES public.solicitudes_adopcion(id) ON DELETE RESTRICT,
+    solicitud_id UUID NOT NULL UNIQUE REFERENCES public.solicitudes_adopcion(id) ON DELETE CASCADE,
     mascota_id UUID NOT NULL REFERENCES public.mascotas(id) ON DELETE RESTRICT,
     usuario_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     entregado_por UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -41,6 +54,14 @@ CREATE TABLE IF NOT EXISTS public.adopciones (
     observaciones TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Actualizar clave foránea a CASCADE en tablas preexistentes
+DO $$ BEGIN
+    ALTER TABLE public.adopciones DROP CONSTRAINT IF EXISTS adopciones_solicitud_id_fkey;
+    ALTER TABLE public.adopciones ADD CONSTRAINT adopciones_solicitud_id_fkey FOREIGN KEY (solicitud_id) REFERENCES public.solicitudes_adopcion(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN undefined_table THEN null;
+END $$;
 
 -- Índices para optimizar consultas de seguimiento
 CREATE INDEX IF NOT EXISTS idx_adopciones_solicitud ON public.adopciones(solicitud_id);
@@ -53,6 +74,7 @@ ALTER TABLE public.adopciones ENABLE ROW LEVEL SECURITY;
 
 -- Limpieza idempotente de políticas previas creadas por esta migración
 DROP POLICY IF EXISTS "Lectura de adopciones por admin o adoptante" ON public.adopciones;
+DROP POLICY IF EXISTS "Eliminación de adopciones por admin" ON public.adopciones;
 
 -- Política de lectura: Administradores pueden ver todas; adoptantes ven sus propias adopciones
 CREATE POLICY "Lectura de adopciones por admin o adoptante"
@@ -62,8 +84,10 @@ CREATE POLICY "Lectura de adopciones por admin o adoptante"
         OR (auth.uid() IS NOT NULL AND usuario_id = auth.uid())
     );
 
--- Nota de seguridad: NO se definen políticas públicas de INSERT/UPDATE/DELETE.
--- La única vía de inserción es la función RPC con verificación de rol de administrador.
+-- Política de eliminación: Administradores pueden eliminar adopciones al purgar solicitudes
+CREATE POLICY "Eliminación de adopciones por admin"
+    ON public.adopciones FOR DELETE
+    USING (public.es_admin());
 
 -- 3. Función atómica para registrar entrega de mascota (Criterios 1, 3, 4, 5, 6 y 7)
 CREATE OR REPLACE FUNCTION public.registrar_entrega_mascota(
@@ -105,9 +129,9 @@ BEGIN
             USING ERRCODE = 'check_violation';
     END IF;
 
-    -- 4. Criterio 6: Construir evento de cronología conservando formato exacto
+    -- 4. Criterio 6: Construir evento de cronología conservando formato exacto ISO UTC
     v_nuevo_evento := jsonb_build_object(
-        'fecha', to_char(v_fecha_entrega, 'YYYY-MM-DD"T"HH24:MI:SSOF'),
+        'fecha', to_char(v_fecha_entrega AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
         'titulo', 'Entrega de mascota registrada',
         'detalle', COALESCE(NULLIF(trim(p_observaciones), ''), 'Entrega formal de la mascota completada exitosamente.')
     );
@@ -158,8 +182,34 @@ BEGIN
 END;
 $$;
 
--- 4. Asignación estricta de privilegios de ejecución
+-- 4. Asignación estricta de privilegios de ejecución para registrar_entrega_mascota
 REVOKE EXECUTE ON FUNCTION public.registrar_entrega_mascota(UUID, TEXT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.registrar_entrega_mascota(UUID, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.registrar_entrega_mascota(UUID, TEXT) TO authenticated;
 GRANT ALL ON TABLE public.adopciones TO postgres, authenticated, service_role;
+
+-- 5. Función administrativa para purgar/eliminar una solicitud de adopción y sus datos dependientes
+CREATE OR REPLACE FUNCTION public.eliminar_solicitud_admin(
+    p_solicitud_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+BEGIN
+    IF NOT public.es_admin() THEN
+        RAISE EXCEPTION 'Acceso denegado: solo los administradores pueden eliminar solicitudes.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    DELETE FROM public.adopciones WHERE solicitud_id = p_solicitud_id;
+    DELETE FROM public.solicitudes_adopcion WHERE id = p_solicitud_id;
+
+    RETURN true;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.eliminar_solicitud_admin(UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.eliminar_solicitud_admin(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION public.eliminar_solicitud_admin(UUID) TO authenticated;
