@@ -1,7 +1,8 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Heart, Trash2 } from "lucide-react";
+import { Heart, LogIn, Trash2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_site/favoritos")({
 });
 
 function Pagina() {
+  const { autenticado } = useAuth();
   const [ids, setIds] = useState(["1", "3", "5"]);
   const favoritos = mascotas.filter((m) => ids.includes(m.id));
 
@@ -52,6 +54,18 @@ function Pagina() {
           </Button>
         )}
       </header>
+      {!autenticado && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3.5 text-sm">
+          <div className="flex items-center gap-2">
+            <LogIn className="size-4 text-primary shrink-0" />
+            <span>Te recomendamos iniciar sesión para guardar tus favoritos en tu perfil y postularte a adopciones.</span>
+          </div>
+          <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+            <Link to="/auth/login" search={{ redirect: "/favoritos" }}>Iniciar sesión</Link>
+          </Button>
+        </div>
+      )}
+
 
       {favoritos.length === 0 ? (
         <div className="mt-12">

@@ -21,6 +21,9 @@ import { iniciarSesion, iniciarSesionConGoogle } from "@/lib/auth";
 import heroPets from "@/assets/hero-pets.jpg";
 
 export const Route = createFileRoute("/auth/login")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Iniciar sesión — Bigotes y Colitas" },
@@ -43,6 +46,7 @@ export const Route = createFileRoute("/auth/login")({
 
 function Pagina() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [ver, setVer] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
@@ -65,10 +69,10 @@ function Pagina() {
       setCargando(false);
       if (res.rol === "administrador") {
         toast.success(`Bienvenido(a) Administrador ${res.perfil?.nombre || ""}`);
-        navigate({ to: "/admin" });
+        navigate({ to: redirect || "/admin" });
       } else {
         toast.success(`¡Bienvenido(a) de vuelta, ${res.perfil?.nombre || "adoptante"}!`);
-        navigate({ to: "/cuenta" });
+        navigate({ to: redirect || "/cuenta" });
       }
     } catch (err: unknown) {
       setCargando(false);
@@ -246,7 +250,7 @@ function Pagina() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             ¿Aún no tienes cuenta?{" "}
-            <Link to="/auth/registro" className="font-medium text-coffee-light hover:underline">
+            <Link to="/auth/registro" search={redirect ? { redirect } : undefined} className="font-medium text-coffee-light hover:underline">
               Regístrate gratis
             </Link>
           </p>

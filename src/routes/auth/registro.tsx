@@ -22,6 +22,9 @@ import { ciudades } from "@/mock/mascotas";
 import pet3 from "@/assets/pet-3.jpg";
 
 export const Route = createFileRoute("/auth/registro")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Crear cuenta — Bigotes y Colitas" },
@@ -59,6 +62,7 @@ function fuerza(clave: string) {
 
 function Pagina() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
   const [clave, setClave] = useState("");
@@ -109,12 +113,12 @@ function Pagina() {
       setCargando(false);
       if (res.session) {
         toast.success("¡Cuenta creada exitosamente en Bigotes y Colitas!");
-        navigate({ to: "/cuenta" });
+        navigate({ to: redirect || "/cuenta" });
       } else {
         toast.success(
           "¡Cuenta creada exitosamente! Ya puedes iniciar sesión con tus credenciales.",
         );
-        navigate({ to: "/auth/login" });
+        navigate({ to: redirect ? `/auth/login?redirect=${encodeURIComponent(redirect)}` : "/auth/login" });
       }
     } catch (err: unknown) {
       setCargando(false);
@@ -342,7 +346,7 @@ function Pagina() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
-            <Link to="/auth/login" className="font-medium text-coffee-light hover:underline">
+            <Link to="/auth/login" search={redirect ? { redirect } : undefined} className="font-medium text-coffee-light hover:underline">
               Inicia sesión
             </Link>
           </p>
