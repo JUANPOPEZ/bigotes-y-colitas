@@ -4,6 +4,7 @@ import {
   FileText,
   HandHeart,
   LayoutDashboard,
+  LogIn,
   MessageSquare,
   ShoppingBag,
   UserRound,
@@ -13,6 +14,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { usuarioDemo } from "@/lib/mock-session";
 import { useAuth } from "@/lib/auth";
 import { notificaciones } from "@/mock";
@@ -34,7 +36,7 @@ const enlaces = [
 function CuentaLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const sinLeer = notificaciones.filter((n) => !n.leida).length;
-  const { user, perfil, rol } = useAuth();
+  const { user, perfil, rol, autenticado, cargando } = useAuth();
 
   const nombre =
     perfil?.nombre ||
@@ -50,6 +52,56 @@ function CuentaLayout() {
       .slice(0, 2)
       .map((p) => p[0].toUpperCase())
       .join("") || "BYC";
+
+  if (cargando) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center p-6 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Comprobando sesión de usuario...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!autenticado) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Navbar />
+        <main className="flex flex-1 items-center justify-center p-6 text-center">
+          <div className="max-w-md space-y-4 rounded-2xl border border-border bg-cream/50 p-8 shadow-sm">
+            <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <LogIn className="size-7" aria-hidden="true" />
+            </span>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coffee-light">
+              Identificación requerida
+            </p>
+            <h2 className="font-display text-2xl font-bold text-foreground">Inicio de sesión recomendado</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Para acceder al panel de tu cuenta, consultar tus solicitudes de adopción, mensajes y gestionar tu perfil, es indispensable iniciar sesión con tu cuenta.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <Button asChild size="default">
+                <Link to="/auth/login" search={{ redirect: pathname }}>
+                  <LogIn className="mr-1.5 size-4" /> Iniciar sesión
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="default">
+                <Link to="/auth/registro" search={{ redirect: pathname }}>
+                  Crear cuenta
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

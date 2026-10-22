@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, CheckCircle2, ChevronLeft, ChevronRight, FileText, Home, PawPrint, User } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronLeft, ChevronRight, FileText, Home, LogIn, PawPrint, ShieldCheck, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { obtenerMascotas } from "@/lib/services/mascotas";
 import type { Mascota } from "@/types";
 import { MAX_SOLICITUDES_ACTIVAS, puedeCrearSolicitud } from "@/lib/reglas-solicitudes";
 import { usuarioDemo } from "@/lib/mock-session";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_site/adopta")({
   validateSearch: (search: Record<string, unknown>): { mascota?: string } => ({
@@ -48,6 +49,7 @@ const pasos = [
 ];
 
 function Pagina() {
+  const { autenticado, cargando: cargandoAuth } = useAuth();
   const { mascota: mascotaInicial } = Route.useSearch();
   const [listaMascotas, setListaMascotas] = useState<Mascota[]>([]);
 
@@ -96,6 +98,100 @@ function Pagina() {
           </Button>
           <Button asChild variant="outline">
             <Link to="/mascotas">Seguir explorando</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Restricción: un usuario sin cuenta no puede acceder ni llenar el formulario de adopción
+  if (cargandoAuth) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Comprobando sesión de usuario...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!autenticado) {
+    const urlRetorno = mascotaId ? `/adopta?mascota=${encodeURIComponent(mascotaId)}` : "/adopta";
+    const mascotaSeleccionada = listaMascotas.find((m) => m.id === mascotaId);
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
+        <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
+          <LogIn className="size-8" aria-hidden="true" />
+        </span>
+
+        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-coffee-light">
+          Identificación requerida
+        </p>
+
+        <h1 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">
+          Inicio de sesión recomendado
+        </h1>
+
+        <p className="mt-4 text-base text-muted-foreground leading-relaxed">
+          Para acceder y diligenciar el formulario de adopción responsable, es necesario e indispensable contar con una cuenta activa. Te recomendamos iniciar sesión o registrarte para que tu solicitud quede formalmente asociada a tu perfil y puedas realizar el seguimiento de su estado en tiempo real.
+        </p>
+
+        {mascotaSeleccionada && (
+          <Card className="my-6 overflow-hidden border-border/80 text-left shadow-soft">
+            <CardContent className="flex items-center gap-4 p-4">
+              <img
+                src={mascotaSeleccionada.galeria[0]}
+                alt={mascotaSeleccionada.nombre}
+                className="size-16 rounded-xl object-cover shrink-0"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.onerror = null;
+                  target.src =
+                    mascotaSeleccionada.especie === "Gato"
+                      ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"
+                      : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800";
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Mascota seleccionada</p>
+                <h3 className="font-display text-lg font-semibold truncate">{mascotaSeleccionada.nombre}</h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {mascotaSeleccionada.especie} · {mascotaSeleccionada.raza} · {mascotaSeleccionada.ciudad}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="my-6 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-left">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 size-5 text-primary shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">¿Por qué es necesario iniciar sesión?</p>
+              <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                <li>Garantiza la trazabilidad y validez jurídica de tu solicitud de adopción.</li>
+                <li>Permite a la fundación contactarte y verificar tus datos de manera segura.</li>
+                <li>Podrás consultar el estado de aprobación y radicado en tiempo real desde tu cuenta.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild size="lg">
+            <Link to="/auth/login" search={{ redirect: urlRetorno }}>
+              <LogIn className="mr-2 size-4" /> Iniciar sesión
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link to="/auth/registro" search={{ redirect: urlRetorno }}>
+              Crear una cuenta
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg">
+            <Link to="/mascotas">Ver catálogo de mascotas</Link>
           </Button>
         </div>
       </div>

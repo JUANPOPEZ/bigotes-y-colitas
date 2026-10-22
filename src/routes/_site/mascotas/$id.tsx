@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  LogIn,
   Baby,
   CalendarDays,
   Cat,
@@ -22,6 +23,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/auth";
 import { EstadoBadge } from "@/components/shared/estado-badge";
 import { PetCard } from "@/components/shared/pet-card";
 import { obtenerMascotaPorId, obtenerMascotas } from "@/lib/services/mascotas";
@@ -61,6 +73,8 @@ export const Route = createFileRoute("/_site/mascotas/$id")({
 
 function Pagina() {
   const { mascota, similares } = Route.useLoaderData() as { mascota: Mascota; similares: Mascota[] };
+  const { user, autenticado } = useAuth();
+  const [dialogoLoginAbierto, setDialogoLoginAbierto] = useState(false);
   const [imagen, setImagen] = useState(0);
   const [favorito, setFavorito] = useState(false);
   const Icono = mascota.especie === "Perro" ? Dog : Cat;
@@ -172,11 +186,17 @@ function Pagina() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg" disabled={mascota.estado !== "Disponible"}>
-              <Link to="/adopta" search={{ mascota: mascota.id }}>
-                Solicitar adopción
-              </Link>
-            </Button>
+            {autenticado ? (
+              <Button asChild size="lg" disabled={mascota.estado !== "Disponible"}>
+                <Link to="/adopta" search={{ mascota: mascota.id }}>
+                  Solicitar adopción
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" disabled={mascota.estado !== "Disponible"} onClick={() => setDialogoLoginAbierto(true)}>
+                <LogIn className="mr-2 size-4" /> Solicitar adopción
+              </Button>
+            )}
             <Button
               size="lg"
               variant="outline"
@@ -200,6 +220,37 @@ function Pagina() {
               <Share2 className="size-4" aria-hidden="true" /> Compartir
             </Button>
           </div>
+
+          {/* Aviso de recomendación de inicio de sesión al ver el perfil */}
+          {!autenticado && (
+            <div className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <LogIn className="size-5" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm sm:text-base">
+                    Inicio de sesión recomendado
+                  </p>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Te recomendamos iniciar sesión o registrarte para solicitar la adopción de <strong className="text-foreground">{mascota.nombre}</strong> y acceder a su formulario de solicitud.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button asChild size="sm">
+                      <Link to="/auth/login" search={{ redirect: `/adopta?mascota=${mascota.id}` }}>
+                        <LogIn className="mr-1.5 size-3.5" /> Iniciar sesión
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/auth/registro" search={{ redirect: `/adopta?mascota=${mascota.id}` }}>
+                        Crear cuenta
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {mascota.estado !== "Disponible" && (
             <p className="mt-4 rounded-xl bg-accent/60 px-4 py-3 text-sm text-accent-foreground">
@@ -267,6 +318,33 @@ function Pagina() {
           </div>
         </section>
       )}
+
+      <AlertDialog open={dialogoLoginAbierto} onOpenChange={setDialogoLoginAbierto}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <LogIn className="size-5 text-primary" />
+              Inicio de sesión recomendado
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Para solicitar la adopción de <strong>{mascota.nombre}</strong> y diligenciar el formulario, es indispensable contar con una cuenta activa. Te recomendamos iniciar sesión o registrarte para asociar y hacer seguimiento a tu solicitud.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <Button asChild variant="outline">
+              <Link to="/auth/registro" search={{ redirect: `/adopta?mascota=${mascota.id}` }}>
+                Crear cuenta
+              </Link>
+            </Button>
+            <AlertDialogAction asChild>
+              <Link to="/auth/login" search={{ redirect: `/adopta?mascota=${mascota.id}` }}>
+                Iniciar sesión
+              </Link>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
