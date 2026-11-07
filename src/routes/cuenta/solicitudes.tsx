@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,7 @@ function Pagina() {
   const [detalle, setDetalle] = useState<Solicitud | null>(null);
   const [solicitudesLista, setSolicitudesLista] = useState<Solicitud[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
 
   const [limiteInfo, setLimiteInfo] = useState<{
     activas: number;
@@ -65,35 +66,29 @@ function Pagina() {
     permitido: true,
   });
 
-  useEffect(() => {
-    let montado = true;
-    setCargando(true);
-
+  const cargarDatos = useCallback(async () => {
     const usuarioId = user?.id;
     const correo = user?.email;
 
-    Promise.all([
-      obtenerSolicitudesUsuario(usuarioId, correo),
-      verificarLimiteSolicitudesUsuario(usuarioId, correo),
-    ])
-      .then(([datos, lim]) => {
-        if (!montado) return;
-        setSolicitudesLista(datos || []);
-        setLimiteInfo(lim);
-        setCargando(false);
-      })
-      .catch((err) => {
-        console.warn("[Cuenta Solicitudes] Error cargando datos:", err);
-        if (montado) {
-          setSolicitudesLista([]);
-          setCargando(false);
-        }
-      });
-
-    return () => {
-      montado = false;
-    };
+    try {
+      const [datos, lim] = await Promise.all([
+        obtenerSolicitudesUsuario(usuarioId, correo),
+        verificarLimiteSolicitudesUsuario(usuarioId, correo),
+      ]);
+      setSolicitudesLista(datos || []);
+      setLimiteInfo(lim);
+    } catch (err) {
+      console.warn("[Cuenta Solicitudes] Error cargando datos:", err);
+      setSolicitudesLista([]);
+    } finally {
+      setCargando(false);
+    }
   }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    setCargando(true);
+    cargarDatos();
+  }, [cargarDatos]);
 
   const { activas, restantes, permitido } = limiteInfo;
 
@@ -200,24 +195,34 @@ function Pagina() {
                       variant="destructive"
                       size="sm"
                       className="ml-2"
+                      disabled={cancelandoId === s.id}
                       onClick={async () => {
                         if (
-                          confirm("¿Estás seguro de que deseas cancelar y eliminar esta solicitud?")
+                          confirm("¿Estás seguro de que deseas cancelar tu solicitud? Tu cupo será liberado inmediatamente.")
                         ) {
                           try {
+                            setCancelandoId(s.id);
                             await eliminarSolicitudPendiente(s.id);
                             toast.success("Solicitud cancelada correctamente.");
-                            // Forzar recarga simple
-                            window.location.reload();
+                            await cargarDatos();
                           } catch (err: unknown) {
                             const msg =
                               err instanceof Error ? err.message : "Error al cancelar la solicitud";
                             toast.error(msg);
+                          } finally {
+                            setCancelandoId(null);
                           }
                         }
                       }}
                     >
-                      Cancelar
+                      {cancelandoId === s.id ? (
+                        <>
+                          <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        "Cancelar"
+                      )}
                     </Button>
                   )}
                 </div>

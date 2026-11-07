@@ -575,7 +575,24 @@ export async function obtenerTodasLasSolicitudes(): Promise<import("@/types").So
  */
 export async function eliminarSolicitudPendiente(id: string): Promise<void> {
   try {
-    // Verificar estado actual
+    // Intento 1: RPC atómica segura que valida propiedad del usuario y estado Pendiente
+    const { error: rpcError } = await supabase.rpc("cancelar_solicitud_adoptante", {
+      p_solicitud_id: id,
+    });
+
+    if (!rpcError) {
+      return;
+    }
+
+    // Si la RPC arroja un error específico de validación de negocio, lo propagamos
+    if (
+      rpcError.message &&
+      (rpcError.message.includes("Pendiente") || rpcError.message.includes("Acceso denegado"))
+    ) {
+      throw new Error(rpcError.message);
+    }
+
+    // Intento 2: Fallback directo a la tabla con validación de estado Pendiente (protegido por RLS)
     const { data: actual, error: errorGet } = await supabase
       .from("solicitudes_adopcion")
       .select("estado")
@@ -596,7 +613,7 @@ export async function eliminarSolicitudPendiente(id: string): Promise<void> {
     if (errorDelete) throw errorDelete;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Error al cancelar la solicitud.";
-    console.error("[Solicitudes Service] Error al eliminar:", err);
+    console.error("[Solicitudes Service] Error al cancelar solicitud pendiente:", err);
     throw new Error(msg);
   }
 }
